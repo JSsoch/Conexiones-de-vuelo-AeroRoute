@@ -181,3 +181,43 @@ def consultar_ruta(
         raise ValueError(
             "Selecciona entre 1 y 20 períodos."
         )
+
+    # DIJKSTRA - RUTA MÁS CORTA
+
+    distancia, recorrido, escalas = calcular_dijkstra(
+        RED.grafo,
+        origen,
+        destino
+    )
+
+    if distancia is None or not recorrido:
+        raise ValueError(
+            f"No existe una ruta de {origen} hacia {destino}."
+        )
+
+    # AUTÓMATA - VALIDACIÓN DE RUTA
+
+    es_valida, mensaje = validar_ruta(
+        recorrido,
+        origen,
+        destino,
+        RED.grafo
+    )
+
+    if not es_valida:
+        raise ValueError(
+            f"El autómata rechazó la ruta: {mensaje}"
+        )
+
+    peso_validado = calcular_peso_ruta(
+        recorrido,
+        RED.grafo
+    )
+
+    if (
+        peso_validado is None
+        or abs(peso_validado - distancia) > 0.000001
+    ):
+        raise ValueError(
+            "La distancia del autómata no coincide con Dijkstra."
+        )
