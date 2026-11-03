@@ -150,4 +150,34 @@ def datos_red():
         "matriz_markov": MATRIZ_TRANSICION
     }
 
+# CÁLCULO DE RUTAS
 
+def consultar_ruta(
+    origen,
+    destino,
+    estado="A tiempo",
+    periodos=3
+):
+
+    origen = origen.strip().upper()
+    destino = destino.strip().upper()
+
+    if origen not in RED.grafo or destino not in RED.grafo:
+        raise ValueError(
+            "Selecciona dos aeropuertos registrados."
+        )
+
+    if origen == destino:
+        raise ValueError(
+            "El origen y el destino deben ser diferentes."
+        )
+
+    if estado not in ESTADOS:
+        raise ValueError(
+            "El estado inicial no es válido."
+        )
+
+    if not 1 <= periodos <= 20:
+        raise ValueError(
+            "Selecciona entre 1 y 20 períodos."
+        )
