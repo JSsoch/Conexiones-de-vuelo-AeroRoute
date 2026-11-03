@@ -113,3 +113,41 @@ def construir_red():
 
 
 RED = construir_red()
+
+# INFORMACIÓN PARA LA PÁGINA
+
+def datos_red():
+
+    conexiones = []
+
+    for origen, destinos in RED.grafo.items():
+
+        for destino, distancia in destinos.items():
+
+            conexiones.append({
+                "origen": origen,
+                "destino": destino,
+                "distancia": distancia
+            })
+
+    aeropuertos = []
+
+    for codigo in RED.grafo:
+
+        aeropuerto = {
+            "codigo": codigo,
+            **AEROPUERTOS[codigo]
+        }
+
+        aeropuertos.append(aeropuerto)
+
+    return {
+        "aeropuertos": aeropuertos,
+        "conexiones": conexiones,
+        "total_aeropuertos": len(RED.grafo),
+        "total_conexiones": len(conexiones),
+        "estados": ESTADOS,
+        "matriz_markov": MATRIZ_TRANSICION
+    }
+
+
