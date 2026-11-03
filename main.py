@@ -221,3 +221,53 @@ def consultar_ruta(
         raise ValueError(
             "La distancia del autómata no coincide con Dijkstra."
         )
+
+    # MARKOV - PREDICCIÓN DEL VUELO
+
+    historial = calcular_probabilidades_periodos(
+        estado_inicial=estado,
+        periodos=periodos
+    )
+
+    ultimo = historial[-1]
+
+    # PREPARAR LOS TRAMOS DEL AVIÓN
+
+
+    tramos = []
+
+    for i in range(len(recorrido) - 1):
+
+        aeropuerto_actual = recorrido[i]
+        aeropuerto_siguiente = recorrido[i + 1]
+
+        tramos.append({
+            "origen": aeropuerto_actual,
+            "destino": aeropuerto_siguiente,
+            "distancia": RED.grafo[
+                aeropuerto_actual
+            ][aeropuerto_siguiente]
+        })
+
+    return {
+        "origen": origen,
+        "destino": destino,
+        "ruta": recorrido,
+        "escalas": escalas,
+        "distancia_total": distancia,
+        "tramos": tramos,
+
+        "validacion": {
+            "valida": es_valida,
+            "mensaje": mensaje
+        },
+
+        "prediccion": {
+            "estado_inicial": estado,
+            "periodos": periodos,
+            "historial": historial,
+            "probabilidades_finales": ultimo["probabilidades"],
+            "estado_mas_probable": ultimo["estado_mas_probable"]
+        }
+    }
+
