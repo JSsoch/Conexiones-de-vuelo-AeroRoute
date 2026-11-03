@@ -271,3 +271,181 @@ def consultar_ruta(
         }
     }
 
+# SERVIDOR WEB
+
+class AeroRouteHandler(BaseHTTPRequestHandler):
+
+    def responder(self, status, contenido, tipo):
+
+        self.send_response(status)
+
+        self.send_header("Content-Type", tipo)
+
+        self.send_header(
+            "Content-Length",
+            str(len(contenido))
+        )
+
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+
+        self.end_headers()
+        self.wfile.write(contenido)
+
+    def responder_json(self, status, datos):
+
+        contenido = json.dumps(
+            datos,
+            ensure_ascii=False
+        ).encode("utf-8")
+
+        self.responder(
+            status,
+            contenido,
+            "application/json; charset=utf-8"
+        )
+
+    def do_GET(self):
+
+        peticion = urlparse(self.path)
+
+        archivos = {
+            "/": (
+                WEB / "index.html",
+                "text/html; charset=utf-8"
+            ),
+
+            "/web/estilos.css": (
+                WEB / "estilos.css",
+                "text/css; charset=utf-8"
+            ),
+
+            "/web/app.js": (
+                WEB / "app.js",
+                "application/javascript; charset=utf-8"
+            )
+        }
+
+        # Entregar HTML, CSS y JavaScript.
+
+        if peticion.path in archivos:
+
+            archivo, tipo = archivos[peticion.path]
+
+            if not archivo.is_file():
+
+                self.responder_json(500, {
+                    "error": f"Falta el archivo {archivo.name}."
+                })
+
+                return
+
+            self.responder(
+                200,
+                archivo.read_bytes(),
+                tipo
+            )
+
+            return
+
+        # API que muestra los aeropuertos y conexiones.
+
+        if peticion.path == "/api/red":
+
+            self.responder_json(
+                200,
+                datos_red()
+            )
+
+            return
+
+        # API para calcular rutas.
+
+        if peticion.path == "/api/ruta":
+
+            parametros = parse_qs(peticion.query)
+
+            try:
+
+                origen = parametros.get(
+                    "origen", [""]
+                )[0]
+
+                destino = parametros.get(
+                    "destino", [""]
+                )[0]
+
+                estado = parametros.get(
+                    "estado", ["A tiempo"]
+                )[0]
+
+                periodos = int(
+                    parametros.get("periodos", ["3"])[0]
+                )
+
+                resultado = consultar_ruta(
+                    origen,
+                    destino,
+                    estado,
+                    periodos
+                )
+
+                self.responder_json(200, resultado)
+
+            except (ValueError, TypeError) as error:
+
+                self.responder_json(400, {
+                    "error": str(error)
+                })
+
+            return
+
+        self.responder_json(404, {
+            "error": "Recurso no encontrado."
+        })
+
+# INICIO DEL SISTEMA
+
+
+def main():
+
+    host = "127.0.0.1"
+    puerto = 8000
+
+    servidor = ThreadingHTTPServer(
+        (host, puerto),
+        AeroRouteHandler
+    )
+
+    print("=" * 55)
+    print("AEROROUTE - SISTEMA WEB DE VUELOS")
+    print("=" * 55)
+
+    print(f"Aeropuertos: {len(RED.grafo)}")
+
+    print(
+        "Conexiones:",
+        sum(len(v) for v in RED.grafo.values())
+    )
+
+    print(
+        f"Página web: http://{host}:{puerto}"
+    )
+
+    print("Presiona Ctrl+C para finalizar.")
+    print("=" * 55)
+
+    try:
+        servidor.serve_forever()
+
+    except KeyboardInterrupt:
+        print("\nServidor finalizado.")
+
+    finally:
+        servidor.server_close()
+
+
+if __name__ == "__main__":
+    main()
+
+
