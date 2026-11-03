@@ -74,3 +74,42 @@ AEROPUERTOS = {
         "lng": -46.4731
     }
 }
+
+# INTEGRACIÓN DEL GRAFO
+
+def construir_red():
+    red = GrafoAeropuertos()
+
+    for codigo in GRAFO_PROPUESTA:
+
+        if codigo not in AEROPUERTOS:
+            raise RuntimeError(
+                f"Faltan coordenadas para {codigo}"
+            )
+
+        nombre = AEROPUERTOS[codigo]["nombre"]
+
+        if len(codigo) == 3:
+            red.registrar_aeropuerto(codigo, nombre)
+        else:
+            # BR tiene dos letras en la propuesta.
+            red.aeropuertos[codigo] = nombre
+            red.grafo[codigo] = {}
+
+    for origen, destinos in GRAFO_PROPUESTA.items():
+
+        for destino, distancia in destinos.items():
+
+            if len(origen) == 3 and len(destino) == 3:
+                red.registrar_vuelo(
+                    origen,
+                    destino,
+                    distancia
+                )
+            else:
+                red.grafo[origen][destino] = float(distancia)
+
+    return red
+
+
+RED = construir_red()
