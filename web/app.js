@@ -1,26 +1,25 @@
 "use strict";
-
-// VARIABLES GENERALES
+// AEROROUTE - MAPA OPENSTREETMAP
 
 const $ = (id) => document.getElementById(id);
 
-const formatoNumero = (numero) => {
-    return Number(numero).toLocaleString("es-GT", {
+const formatoNumero = (n) =>
+    Number(n).toLocaleString("es-GT", {
         maximumFractionDigits: 0
     });
-};
 
-const ESTADO_COLORES = {
+const COLORES = {
     "A tiempo": "prob-a-tiempo",
     "Retrasado": "prob-retrasado",
     "Cancelado": "prob-cancelado"
 };
 
-const sistema = {
+
+// VARIABLES DEL SISTEMA
+
+const estado = {
     red: null,
     mapa: null,
-    canvas: null,
-
     pines: new Map(),
 
     capaConexiones: null,
@@ -36,7 +35,8 @@ const sistema = {
     completado: false,
 
     tiempoAnterior: null,
-    frame: null
+    frame: null,
+    solicitud: 0
 };
 
 // COMUNICACIÓN CON PYTHON
@@ -44,12 +44,11 @@ const sistema = {
 async function pedirJSON(url) {
 
     const respuesta = await fetch(url);
-
     const datos = await respuesta.json();
 
     if (!respuesta.ok) {
         throw new Error(
-            datos.error || "Error en el servidor."
+            datos.error || "Error del servidor."
         );
     }
 
@@ -57,97 +56,119 @@ async function pedirJSON(url) {
 }
 
 
-function setMensaje(texto, tipo = "") {
+function mensaje(texto, tipo = "") {
 
     $("mensaje").textContent = texto;
-
     $("mensaje").className = "mensaje " + tipo;
 }
 
-// INICIALIZAR MAPA
+// MAPA REAL CON OPENSTREETMAP
 
 function inicializarMapa() {
 
-    // Si Leaflet no está disponible,
-    // utilizamos un mapa vectorial local.
-
     if (typeof L === "undefined") {
-
-        $("mapa-fallback").hidden = false;
-
-        sistema.canvas = $("mapa-local").getContext("2d");
-
-        $("mapa-estado").textContent =
-            "Mapa vectorial ilustrativo";
-
-        return;
+        throw new Error(
+            "No cargó Leaflet. Comprueba tu conexión a Internet."
+        );
     }
 
-    sistema.mapa = L.map("mapa", {
+    estado.mapa = L.map("mapa", {
+
         zoomControl: false,
+
         minZoom: 2,
+        maxZoom: 19,
+
         worldCopyJump: true,
         preferCanvas: true
     });
 
     L.control.zoom({
         position: "bottomright"
-    }).addTo(sistema.mapa);
+    }).addTo(estado.mapa);
 
-    L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    // CAPA DE OPENSTREETMAP
+    // NO NECESITA API KEY
+
+    const mapaBase = L.tileLayer(
+
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+
         {
-            maxZoom: 18,
-            attribution: "&copy; OpenStreetMap &copy; CARTO",
-            subdomains: "abcd"
+            minZoom: 2,
+            maxZoom: 19,
+
+            attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }
-    ).addTo(sistema.mapa);
+    );
 
-    sistema.capaConexiones = L.layerGroup()
-        .addTo(sistema.mapa);
 
-    sistema.capaRuta = L.layerGroup()
-        .addTo(sistema.mapa);
+    // Detectar errores de carga del mapa.
 
-    sistema.mapa.setView([12, -63], 3);
+    mapaBase.on("tileerror", () => {
+
+        $("mapa-estado").textContent =
+            "No se cargó una imagen del mapa. " +
+            "Revisa la conexión a Internet.";
+    });
+
+    mapaBase.addTo(estado.mapa);
+
+
+    // Capas de conexiones y ruta óptima.
+
+    estado.capaConexiones = L.layerGroup()
+        .addTo(estado.mapa);
+
+    estado.capaRuta = L.layerGroup()
+        .addTo(estado.mapa);
+
+
+    // Vista inicial.
+
+    estado.mapa.setView([14, -67], 3);
 }
 
-// COORDENADAS DE AEROPUERTOS
+// INFORMACIÓN DE AEROPUERTOS
+
+function aeropuerto(codigo) {
+
+    const a = estado.red.aeropuertos.find(
+        (x) => x.codigo === codigo
+    );
+
+    if (!a) {
+        throw new Error(
+            `No existe el aeropuerto ${codigo}.`
+        );
+    }
+
+    return a;
+}
+
 
 function coordenada(codigo) {
 
-    const aeropuerto = sistema.red.aeropuertos.find(
-        a => a.codigo === codigo
-    );
+    const a = aeropuerto(codigo);
 
-    return [
-        aeropuerto.lat,
-        aeropuerto.lng
-    ];
+    return [a.lat, a.lng];
 }
 
-// MOSTRAR AEROPUERTOS Y CONEXIONES
+// MOSTRAR AEROPUERTOS
 
-
-function pintarRed() {
-
-    if (!sistema.mapa) {
-        dibujarMapaLocal();
-        return;
-    }
+function mostrarRed() {
 
     const limites = [];
 
-    for (const aeropuerto of sistema.red.aeropuertos) {
+    for (const a of estado.red.aeropuertos) {
 
-        const ubicacion = [
-            aeropuerto.lat,
-            aeropuerto.lng
-        ];
+        const punto = [a.lat, a.lng];
 
-        limites.push(ubicacion);
+        limites.push(punto);
 
         const icono = L.divIcon({
+
             className: "aeropuerto-punto",
 
             iconSize: [27, 40],
@@ -156,155 +177,199 @@ function pintarRed() {
             html: `
                 <div class="pin-punto"></div>
                 <span class="pin-codigo">
-                    ${aeropuerto.codigo}
+                    ${a.codigo}
                 </span>
             `
         });
 
+
+        // Crear marcador.
+
         const pin = L.marker(
-            ubicacion,
+            punto,
             { icon: icono }
-        ).addTo(sistema.mapa);
+        ).addTo(estado.mapa);
 
-        pin.bindPopup(`
-            <strong>${aeropuerto.codigo}</strong>
-            <br>
-            ${aeropuerto.nombre}
-        `);
 
-        sistema.pines.set(
-            aeropuerto.codigo,
-            pin
+        // Información emergente del aeropuerto.
+
+        const nombre = document.createElement("div");
+
+        nombre.textContent = a.nombre;
+
+        const titulo = document.createElement("strong");
+
+        titulo.textContent = a.codigo;
+
+        const popup = document.createElement("div");
+
+        popup.append(
+            titulo,
+            document.createElement("br"),
+            nombre
         );
+
+        pin.bindPopup(popup);
+
+        estado.pines.set(a.codigo, pin);
     }
 
-    // Dibujar todas las conexiones del grafo.
+    // DIBUJAR CONEXIONES
 
-    for (const conexion of sistema.red.conexiones) {
+    for (const vuelo of estado.red.conexiones) {
 
         L.polyline(
             [
-                coordenada(conexion.origen),
-                coordenada(conexion.destino)
+                coordenada(vuelo.origen),
+                coordenada(vuelo.destino)
             ],
+
             {
                 color: "#376b84",
-                weight: 1.2,
-                opacity: 0.53,
+
+                weight: 1.4,
+                opacity: 0.65,
+
                 dashArray: "3 6",
+
                 interactive: false
             }
-        ).addTo(sistema.capaConexiones);
+
+        ).addTo(estado.capaConexiones);
     }
 
-    sistema.mapa.fitBounds(limites, {
-        padding: [35, 35]
-    });
+
+    // Mostrar todos los aeropuertos.
+
+    estado.mapa.fitBounds(
+        limites,
+        { padding: [35, 35] }
+    );
 }
 
-// LLENAR LOS SELECTORES
+// LLENAR SELECTORES
 
-function llenarSelects() {
-
-    const aeropuertos = sistema.red.aeropuertos;
+function llenarSelectores() {
 
     for (const id of ["origen", "destino"]) {
 
-        const select = $(id);
+        const selector = $(id);
 
-        select.replaceChildren();
+        selector.replaceChildren();
 
-        aeropuertos.forEach(a => {
+        for (const a of estado.red.aeropuertos) {
 
-            const opcion = document.createElement("option");
+            const opcion =
+                document.createElement("option");
 
             opcion.value = a.codigo;
 
             opcion.textContent =
-                `${a.codigo} - ${a.nombre}`;
+                `${a.codigo} · ${a.nombre}`;
 
-            select.appendChild(opcion);
-        });
+            selector.appendChild(opcion);
+        }
     }
+
+
+    // Valores iniciales.
 
     $("origen").value = "GUA";
     $("destino").value = "MAD";
 
     $("estado").replaceChildren();
 
-    sistema.red.estados.forEach(nombre => {
 
-        const opcion = document.createElement("option");
+    // Estados de Markov.
+
+    for (const nombre of estado.red.estados) {
+
+        const opcion =
+            document.createElement("option");
 
         opcion.value = nombre;
         opcion.textContent = nombre;
 
         $("estado").appendChild(opcion);
-    });
-
-    $("cantidad-aeropuertos").textContent =
-        sistema.red.total_aeropuertos;
-
-    $("cantidad-conexiones").textContent =
-        sistema.red.total_conexiones;
-}
-
-// DIBUJAR LA RUTA MÁS CORTA
-
-function actualizarMapaRuta(resultado) {
-
-    if (!sistema.mapa) {
-        dibujarMapaLocal();
-        return;
     }
 
-    sistema.capaRuta.clearLayers();
+
+    $("cantidad-aeropuertos").textContent =
+        estado.red.total_aeropuertos;
+
+    $("cantidad-conexiones").textContent =
+        estado.red.total_conexiones;
+}
+
+// MOSTRAR RUTA ÓPTIMA EN EL MAPA
+
+function mostrarRutaEnMapa(resultado) {
+
+    estado.capaRuta.clearLayers();
 
     const puntos = resultado.ruta.map(coordenada);
 
-    // Efecto de brillo sobre la ruta.
+
+    // Brillo de la ruta.
 
     L.polyline(puntos, {
+
         color: "#29d4f8",
-        weight: 9,
-        opacity: 0.15,
-        interactive: false
-    }).addTo(sistema.capaRuta);
 
-    // Línea principal de la ruta.
+        weight: 9,
+        opacity: 0.17,
+
+        interactive: false
+
+    }).addTo(estado.capaRuta);
+
+
+    // Línea de la ruta.
 
     L.polyline(puntos, {
+
         color: "#5cf2d4",
+
         weight: 3.6,
         opacity: 0.95,
+
         interactive: false
-    }).addTo(sistema.capaRuta);
 
-    // Marcar los aeropuertos del recorrido.
+    }).addTo(estado.capaRuta);
 
-    for (const [codigo, pin] of sistema.pines) {
 
-        const nodo = pin.getElement()?.querySelector(
-            ".pin-punto"
-        );
+    // Resaltar aeropuertos del recorrido.
 
-        if (nodo) {
-            nodo.classList.toggle(
+    for (const [codigo, pin] of estado.pines) {
+
+        const circulo = pin.getElement()
+            ?.querySelector(".pin-punto");
+
+        if (circulo) {
+
+            circulo.classList.toggle(
                 "ruta",
                 resultado.ruta.includes(codigo)
             );
         }
     }
 
-    sistema.mapa.fitBounds(puntos, {
+
+    // Centrar el mapa en la ruta.
+
+    estado.mapa.fitBounds(puntos, {
+
         paddingTopLeft: [90, 90],
+
         paddingBottomRight: [70, 55],
+
         maxZoom: 5
     });
 
-    // Crear el avioncito.
+    // ICONO DEL AVIÓN
 
     const iconoAvion = L.divIcon({
+
         className: "avion-marcador",
 
         iconSize: [38, 38],
@@ -312,11 +377,16 @@ function actualizarMapaRuta(resultado) {
 
         html: `
             <span class="avion-svg">
-                <svg viewBox="0 0 40 40">
-                    <circle class="halo"
-                            cx="20"
-                            cy="20"
-                            r="17"/>
+
+                <svg viewBox="0 0 40 40"
+                     aria-hidden="true">
+
+                    <circle
+                        class="halo"
+                        cx="20"
+                        cy="20"
+                        r="17"
+                    />
 
                     <path d="
                         M20 2
@@ -340,49 +410,45 @@ function actualizarMapaRuta(resultado) {
                         C22.7 4.3 21.6 2 20 2
                         Z
                     "/>
+
                 </svg>
+
             </span>
         `
     });
 
-    sistema.avion = L.marker(
+
+    estado.avion = L.marker(
+
         puntos[0],
+
         {
+            icon: iconoAvion,
+
             zIndexOffset: 1000,
-            interactive: false,
-            icon: iconoAvion
+
+            interactive: false
         }
-    ).addTo(sistema.capaRuta);
+
+    ).addTo(estado.capaRuta);
 }
 
-// MOSTRAR RESULTADOS DE DIJKSTRA Y MARKOV
+// RESULTADOS DE DIJKSTRA Y MARKOV
 
-function presentarResultados(resultado) {
-
-    const resumen = resultado.ruta.map(
-        (codigo, indice) => {
-
-            const flecha = indice ? "<i>➜</i>" : "";
-
-            return `
-                ${flecha}
-                <span>${codigo}</span>
-            `;
-        }
-    ).join("");
+function mostrarResultados(r) {
 
     $("distancia-principal").textContent =
-        formatoNumero(resultado.distancia_total);
+        formatoNumero(r.distancia_total);
 
     $("cantidad-escalas").textContent =
-        resultado.escalas.length;
+        r.escalas.length;
 
     $("mapa-ruta-texto").textContent =
-        `${resultado.origen} → ${resultado.destino}`;
+        `${r.origen} → ${r.destino}`;
 
     $("mapa-estado").textContent =
-        `${resultado.ruta.length - 1} tramos - ` +
-        `${formatoNumero(resultado.distancia_total)} km`;
+        `${r.tramos.length} tramos · ` +
+        `${formatoNumero(r.distancia_total)} km`;
 
     $("sello-validacion").className =
         "sello verde";
@@ -390,246 +456,333 @@ function presentarResultados(resultado) {
     $("sello-validacion").textContent =
         "✓ RUTA VÁLIDA";
 
-    const descripcion = resultado.escalas.length
-        ? "Escalas: " + resultado.escalas.join(", ")
-        : "Vuelo directo, sin escalas";
+    // RECORRIDO
 
-    $("resumen-ruta").innerHTML = `
-        <div class="ruta-codigos">
-            ${resumen}
-        </div>
+    const resumen = $("resumen-ruta");
 
-        <span class="ruta-detalle">
-            ${descripcion} -
-            ${formatoNumero(resultado.distancia_total)} km
-        </span>
-    `;
+    resumen.replaceChildren();
 
-    // Mostrar los tramos individuales.
+    const codigos =
+        document.createElement("div");
+
+    codigos.className = "ruta-codigos";
+
+
+    r.ruta.forEach((codigo, i) => {
+
+        if (i) {
+
+            const flecha =
+                document.createElement("i");
+
+            flecha.textContent = "➜";
+
+            codigos.appendChild(flecha);
+        }
+
+        const etiqueta =
+            document.createElement("span");
+
+        etiqueta.textContent = codigo;
+
+        codigos.appendChild(etiqueta);
+    });
+
+
+    const descripcion =
+        document.createElement("span");
+
+    descripcion.className = "ruta-detalle";
+
+    descripcion.textContent =
+        (
+            r.escalas.length
+
+                ? `Escalas: ${r.escalas.join(", ")}`
+
+                : "Vuelo directo"
+
+        ) + ` · ${formatoNumero(r.distancia_total)} km`;
+
+    resumen.append(codigos, descripcion);
+
+    // TRAMOS
 
     $("tramos").replaceChildren();
 
-    resultado.tramos.forEach((tramo, indice) => {
+    r.tramos.forEach((tramo, i) => {
 
-        const item = document.createElement("div");
+        const fila =
+            document.createElement("div");
 
-        item.className = "tramo-item";
+        fila.className = "tramo-item";
 
-        item.innerHTML = `
-            <span class="tramo-num">
-                ${indice + 1}
-            </span>
+        const n =
+            document.createElement("span");
 
-            <b>
-                ${tramo.origen} → ${tramo.destino}
-            </b>
+        n.className = "tramo-num";
 
-            <small>
-                ${formatoNumero(tramo.distancia)} km
-            </small>
-        `;
+        n.textContent = i + 1;
 
-        $("tramos").appendChild(item);
+        const ruta =
+            document.createElement("b");
+
+        ruta.textContent =
+            `${tramo.origen} → ${tramo.destino}`;
+
+        const km =
+            document.createElement("small");
+
+        km.textContent =
+            `${formatoNumero(tramo.distancia)} km`;
+
+        fila.append(n, ruta, km);
+
+        $("tramos").appendChild(fila);
     });
 
-    // Mostrar probabilidades de Markov.
+    // MARKOV
 
-    const pronostico = resultado.prediccion;
+    const caja = $("prediccion");
 
-    const tarjetas = sistema.red.estados.map(nombre => {
+    caja.className = "";
+
+    caja.replaceChildren();
+
+    const barras =
+        document.createElement("div");
+
+    barras.className = "prob-bloque";
+
+
+    for (const nombre of estado.red.estados) {
+
+        const porcentaje =
+            100 *
+            r.prediccion.probabilidades_finales[nombre];
+
+        const bloque =
+            document.createElement("div");
+
+        const etiquetas =
+            document.createElement("div");
+
+        etiquetas.className = "prob-etiquetas";
+
+        const texto =
+            document.createElement("span");
+
+        texto.textContent = nombre;
 
         const valor =
-            pronostico.probabilidades_finales[nombre] * 100;
+            document.createElement("strong");
 
-        const clase = ESTADO_COLORES[nombre] || "";
+        valor.textContent =
+            `${porcentaje.toFixed(2)}%`;
 
-        return `
-            <div>
-                <div class="prob-etiquetas">
-                    <span>${nombre}</span>
-                    <strong>${valor.toFixed(2)}%</strong>
-                </div>
+        etiquetas.append(texto, valor);
 
-                <div class="prob-pista">
-                    <div class="prob-relleno ${clase}"
-                         style="width:${valor}%">
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join("");
 
-    $("prediccion").className = "";
+        const pista =
+            document.createElement("div");
 
-    $("prediccion").innerHTML = `
-        <div class="prob-bloque">
-            ${tarjetas}
-        </div>
+        pista.className = "prob-pista";
 
-        <div class="prediccion-resumen">
-            Período ${pronostico.periodos}:
-            estado más probable
-            <b>${pronostico.estado_mas_probable}</b>.
-        </div>
-    `;
+        const relleno =
+            document.createElement("div");
+
+        relleno.className =
+            `prob-relleno ${COLORES[nombre] || ""}`;
+
+        relleno.style.width = `${porcentaje}%`;
+
+        pista.appendChild(relleno);
+
+        bloque.append(etiquetas, pista);
+
+        barras.appendChild(bloque);
+    }
+
+
+    const conclusion =
+        document.createElement("div");
+
+    conclusion.className =
+        "prediccion-resumen";
+
+    conclusion.textContent =
+        `Período ${r.prediccion.periodos}: ` +
+        `estado más probable ` +
+        `${r.prediccion.estado_mas_probable}.`;
+
+    caja.append(barras, conclusion);
 }
 
-// CONTROL DE ANIMACIÓN
-
+// DETENER ANIMACIÓN
 
 function detenerAnimacion() {
 
-    if (sistema.frame !== null) {
-        cancelAnimationFrame(sistema.frame);
+    if (estado.frame !== null) {
+
+        cancelAnimationFrame(estado.frame);
     }
 
-    sistema.frame = null;
-    sistema.activo = false;
-    sistema.tiempoAnterior = null;
+    estado.frame = null;
+
+    estado.activo = false;
+
+    estado.tiempoAnterior = null;
 }
 
+// DURACIÓN DEL TRAMO
 
 function duracionTramo() {
 
-    const distancia =
-        sistema.ruta.tramos[sistema.segmento].distancia;
+    const km =
+        estado.ruta.tramos[estado.segmento].distancia;
 
     return Math.max(
         1850,
-        Math.min(4700, distancia * 0.95)
+        Math.min(4700, km * 0.95)
     );
 }
 
-
-// MOVIMIENTO DEL AVIÓN
+// COLOCAR EL AVIÓN
 
 function colocarAvion() {
 
-    if (!sistema.ruta) {
-        return;
-    }
-
-    if (!sistema.mapa || !sistema.avion) {
-        dibujarMapaLocal();
+    if (!estado.ruta || !estado.avion) {
         return;
     }
 
     const origen = coordenada(
-        sistema.ruta.ruta[sistema.segmento]
+        estado.ruta.ruta[estado.segmento]
     );
 
     const destino = coordenada(
-        sistema.ruta.ruta[sistema.segmento + 1]
+        estado.ruta.ruta[estado.segmento + 1]
     );
 
-    const progreso = sistema.progreso;
+    const t = estado.progreso;
 
-    // Interpolación entre aeropuerto de
-    // salida y aeropuerto de llegada.
 
-    const latitud = origen[0] +
-        (destino[0] - origen[0]) * progreso;
+    // Movimiento del avión entre dos puntos.
 
-    const longitud = origen[1] +
-        (destino[1] - origen[1]) * progreso;
+    estado.avion.setLatLng([
 
-    sistema.avion.setLatLng([
-        latitud,
-        longitud
+        origen[0] +
+        (destino[0] - origen[0]) * t,
+
+        origen[1] +
+        (destino[1] - origen[1]) * t
+
     ]);
 
-    // Orientación del avión.
 
-    const puntoOrigen =
-        sistema.mapa.latLngToLayerPoint(origen);
+    // Orientación del avioncito.
 
-    const puntoDestino =
-        sistema.mapa.latLngToLayerPoint(destino);
+    const p1 = estado.mapa.latLngToLayerPoint(origen);
+
+    const p2 = estado.mapa.latLngToLayerPoint(destino);
 
     const angulo = Math.atan2(
-        puntoDestino.x - puntoOrigen.x,
-        -(puntoDestino.y - puntoOrigen.y)
+
+        p2.x - p1.x,
+
+        -(p2.y - p1.y)
+
     ) * 180 / Math.PI;
 
-    const icono = sistema.avion.getElement()
+
+    const svg = estado.avion.getElement()
         ?.querySelector(".avion-svg");
 
-    if (icono) {
-        icono.style.transform =
+    if (svg) {
+
+        svg.style.transform =
             `rotate(${angulo}deg)`;
     }
 
+
+    // Información del tramo actual.
+
     $("tramo-actual").textContent =
-        `${sistema.ruta.ruta[sistema.segmento]}` +
+        `${estado.ruta.ruta[estado.segmento]}` +
         ` → ` +
-        `${sistema.ruta.ruta[sistema.segmento + 1]}`;
+        `${estado.ruta.ruta[estado.segmento + 1]}`;
 
     $("estado-animacion").textContent =
-        `Tramo ${sistema.segmento + 1} de ` +
-        `${sistema.ruta.tramos.length} - ` +
-        `${Math.round(progreso * 100)}% recorrido`;
+        `Tramo ${estado.segmento + 1} de ` +
+        `${estado.ruta.tramos.length} · ` +
+        `${Math.round(t * 100)}% recorrido`;
 }
 
-// ANIMAR CADA TRAMO
+// ANIMAR EL AVIÓN
 
 function animar(timestamp) {
 
-    if (!sistema.activo || !sistema.ruta) {
+    if (!estado.activo || !estado.ruta) {
         return;
     }
 
-    if (sistema.tiempoAnterior === null) {
-        sistema.tiempoAnterior = timestamp;
+    if (estado.tiempoAnterior === null) {
+
+        estado.tiempoAnterior = timestamp;
     }
 
     const delta = Math.min(
         70,
-        timestamp - sistema.tiempoAnterior
+        timestamp - estado.tiempoAnterior
     );
 
-    sistema.tiempoAnterior = timestamp;
+    estado.tiempoAnterior = timestamp;
 
-    const velocidad = Number(
-        $("velocidad").value
-    );
 
-    sistema.progreso += (
-        delta * velocidad / duracionTramo()
-    );
+    // Avanzar en el recorrido.
 
-    // Comprobar si el avión llegó al
-    // siguiente aeropuerto.
+    estado.progreso +=
 
-    if (sistema.progreso >= 1) {
+        delta *
+        Number($("velocidad").value) /
+        duracionTramo();
 
-        sistema.segmento++;
-        sistema.progreso = 0;
+
+    // Verificar llegada al siguiente aeropuerto.
+
+    if (estado.progreso >= 1) {
+
+        estado.segmento++;
+
+        estado.progreso = 0;
+
 
         // Llegada al destino final.
 
         if (
-            sistema.segmento >=
-            sistema.ruta.tramos.length
+            estado.segmento >=
+            estado.ruta.tramos.length
         ) {
 
-            sistema.segmento =
-                sistema.ruta.tramos.length - 1;
+            estado.segmento =
+                estado.ruta.tramos.length - 1;
 
-            sistema.progreso = 1;
+            estado.progreso = 1;
 
             colocarAvion();
+
             detenerAnimacion();
 
-            sistema.completado = true;
+            estado.completado = true;
 
-            $("pausa").textContent = "✓ Llegó";
             $("pausa").disabled = true;
 
-            $("estado-animacion").textContent =
-                `Llegada a ${sistema.ruta.destino}`;
+            $("pausa").textContent = "✓ Llegó";
 
-            setMensaje(
-                "El avión completó todos los tramos.",
+            $("estado-animacion").textContent =
+                `Llegada a ${estado.ruta.destino}`;
+
+            mensaje(
+                "El avión llegó a su destino.",
                 "ok"
             );
 
@@ -637,126 +790,143 @@ function animar(timestamp) {
         }
     }
 
+
     colocarAvion();
 
-    sistema.frame = requestAnimationFrame(animar);
+    estado.frame =
+        requestAnimationFrame(animar);
 }
 
-// INICIAR EL VUELO
+// INICIAR VUELO
 
 function iniciarVuelo() {
 
-    if (!sistema.ruta) {
+    if (!estado.ruta) {
         return;
     }
 
     detenerAnimacion();
 
-    sistema.segmento = 0;
-    sistema.progreso = 0;
-    sistema.completado = false;
-    sistema.activo = true;
-    sistema.tiempoAnterior = null;
+    estado.segmento = 0;
+    estado.progreso = 0;
+
+    estado.completado = false;
+    estado.activo = true;
+
 
     $("pausa").disabled = false;
+
     $("reiniciar").disabled = false;
 
     $("pausa").textContent = "❚❚ Pausar";
 
+
     colocarAvion();
 
-    sistema.frame = requestAnimationFrame(animar);
+    estado.frame =
+        requestAnimationFrame(animar);
 }
 
-// PAUSAR Y CONTINUAR
+// PAUSAR O CONTINUAR
 
 function pausarOContinuar() {
 
-    if (sistema.activo) {
+    if (estado.activo) {
 
         detenerAnimacion();
 
-        $("pausa").textContent = "▶ Continuar";
+        $("pausa").textContent =
+            "▶ Continuar";
 
         $("estado-animacion").textContent =
             "Vuelo en pausa";
 
     } else if (
-        !sistema.completado &&
-        sistema.ruta
+        estado.ruta &&
+        !estado.completado
     ) {
 
-        sistema.activo = true;
-        sistema.tiempoAnterior = null;
+        estado.activo = true;
 
-        $("pausa").textContent = "❚❚ Pausar";
+        estado.tiempoAnterior = null;
 
-        sistema.frame = requestAnimationFrame(animar);
+        $("pausa").textContent =
+            "❚❚ Pausar";
+
+        estado.frame =
+            requestAnimationFrame(animar);
     }
 }
 
-// BUSCAR UNA RUTA NUEVA
+// BUSCAR RUTA
 
 async function buscarRuta() {
+
+    const solicitud = ++estado.solicitud;
 
     detenerAnimacion();
 
     $("calcular").disabled = true;
 
-    setMensaje(
-        "Calculando la ruta y verificando conexiones..."
-    );
+    mensaje("Calculando la mejor ruta...");
+
 
     const parametros = new URLSearchParams({
+
         origen: $("origen").value,
+
         destino: $("destino").value,
+
         estado: $("estado").value,
+
         periodos: $("periodos").value
     });
+
 
     try {
 
         const resultado = await pedirJSON(
-            `/api/ruta?${parametros.toString()}`
+            `/api/ruta?${parametros}`
         );
 
-        sistema.ruta = resultado;
+        if (solicitud !== estado.solicitud) {
+            return;
+        }
 
-        presentarResultados(resultado);
+        estado.ruta = resultado;
 
-        actualizarMapaRuta(resultado);
+        mostrarResultados(resultado);
+
+        mostrarRutaEnMapa(resultado);
 
         iniciarVuelo();
 
-        setMensaje(
+        mensaje(
             `Ruta encontrada: ${resultado.ruta.join(" → ")}`,
             "ok"
         );
 
     } catch (error) {
 
-        sistema.ruta = null;
+        if (solicitud !== estado.solicitud) {
+            return;
+        }
+
+        estado.ruta = null;
+        estado.avion = null;
+
+        estado.capaRuta.clearLayers();
 
         $("pausa").disabled = true;
         $("reiniciar").disabled = true;
 
-        setMensaje(error.message, "error");
-
         $("distancia-principal").textContent = "—";
         $("cantidad-escalas").textContent = "—";
 
-        $("resumen-ruta").textContent =
-            "No existe un recorrido disponible.";
-
-        $("tramos").replaceChildren();
-
-        $("prediccion").textContent =
-            "Selecciona otra ruta.";
-
-        $("tramo-actual").textContent =
+        $("mapa-ruta-texto").textContent =
             "Ruta no disponible";
 
-        $("estado-animacion").textContent =
+        $("mapa-estado").textContent =
             error.message;
 
         $("sello-validacion").className =
@@ -765,381 +935,92 @@ async function buscarRuta() {
         $("sello-validacion").textContent =
             "Sin ruta";
 
-        if (sistema.capaRuta) {
-            sistema.capaRuta.clearLayers();
-        }
+        $("resumen-ruta").textContent =
+            "No existe una ruta para esos aeropuertos.";
 
-        dibujarMapaLocal();
+        $("tramos").replaceChildren();
+
+        $("prediccion").textContent =
+            "No hay predicción para esta ruta.";
+
+        $("tramo-actual").textContent =
+            "Vuelo no disponible";
+
+        $("estado-animacion").textContent =
+            error.message;
+
+        mensaje(error.message, "error");
 
     } finally {
 
-        $("calcular").disabled = false;
-    }
-}
+        if (solicitud === estado.solicitud) {
 
-// MAPA ALTERNATIVO SIN LEAFLET
-
-const MASAS_TERRESTRES = [
-    [
-        [-133,54], [-127,49], [-124,42],
-        [-117,32], [-111,31], [-107,27],
-        [-105,23], [-99,17], [-96,16],
-        [-93,19], [-90,21], [-86,21],
-        [-84,24], [-82,27], [-80,32],
-        [-76,35], [-71,42], [-66,45],
-        [-60,51], [-70,58], [-85,61],
-        [-102,60], [-118,57]
-    ],
-    [
-        [-93,18], [-88,15], [-86,12],
-        [-83,10], [-81,8], [-78,8],
-        [-79,11], [-83,12], [-86,15],
-        [-90,19]
-    ],
-    [
-        [-79,9], [-75,12], [-68,12],
-        [-62,9], [-54,7], [-50,3],
-        [-46,1], [-43,-2], [-37,-7],
-        [-36,-13], [-40,-19], [-44,-23],
-        [-48,-28], [-51,-31], [-55,-37],
-        [-69,-55], [-74,-46], [-72,-37],
-        [-76,-25], [-79,-11], [-82,-3]
-    ],
-    [
-        [-13,50], [-12,44], [-9,36],
-        [-5,36], [-1,39], [5,43],
-        [9,46], [15,46], [20,48],
-        [23,55], [13,61], [-2,60]
-    ],
-    [
-        [-17,37], [-8,35], [2,36],
-        [11,34], [23,30], [30,21],
-        [29,10], [22,3], [19,-10],
-        [13,-20], [18,-34], [11,-35],
-        [2,-29], [-4,-18], [-9,-1],
-        [-16,10]
-    ]
-];
-
-
-function dibujarMapaLocal() {
-
-    if (!sistema.canvas) {
-        return;
-    }
-
-    const c = sistema.canvas;
-
-    const W = c.canvas.width;
-    const H = c.canvas.height;
-
-    function proy(lat, lng) {
-        return [
-            ((lng + 135) / 160) * W,
-            ((63 - lat) / 122) * H
-        ];
-    }
-
-    c.clearRect(0, 0, W, H);
-
-    const gradiente =
-        c.createLinearGradient(0, 0, W, H);
-
-    gradiente.addColorStop(0, "#0a2939");
-    gradiente.addColorStop(1, "#08121f");
-
-    c.fillStyle = gradiente;
-    c.fillRect(0, 0, W, H);
-
-    // Cuadrícula.
-
-    c.lineWidth = 1;
-    c.strokeStyle = "#2e536055";
-
-    for (let lon = -120; lon <= 20; lon += 20) {
-
-        const x = proy(0, lon)[0];
-
-        c.beginPath();
-        c.moveTo(x, 0);
-        c.lineTo(x, H);
-        c.stroke();
-    }
-
-    for (let lat = -40; lat <= 60; lat += 20) {
-
-        const y = proy(lat, 0)[1];
-
-        c.beginPath();
-        c.moveTo(0, y);
-        c.lineTo(W, y);
-        c.stroke();
-    }
-
-    // Continentes ilustrativos.
-
-    for (const masa of MASAS_TERRESTRES) {
-
-        c.beginPath();
-
-        masa.forEach(([lng, lat], i) => {
-
-            const [x, y] = proy(lat, lng);
-
-            if (i === 0) {
-                c.moveTo(x, y);
-            } else {
-                c.lineTo(x, y);
-            }
-        });
-
-        c.closePath();
-
-        c.fillStyle = "#153949";
-        c.strokeStyle = "#266073";
-        c.lineWidth = 1.5;
-
-        c.fill();
-        c.stroke();
-    }
-
-    if (!sistema.red) {
-        return;
-    }
-
-    // Conexiones del grafo.
-
-    if ($("mostrar-red").checked) {
-
-        for (const con of sistema.red.conexiones) {
-
-            const a = sistema.red.aeropuertos.find(
-                p => p.codigo === con.origen
-            );
-
-            const b = sistema.red.aeropuertos.find(
-                p => p.codigo === con.destino
-            );
-
-            const [ax, ay] = proy(a.lat, a.lng);
-            const [bx, by] = proy(b.lat, b.lng);
-
-            c.beginPath();
-            c.setLineDash([4, 9]);
-
-            c.strokeStyle = "#2f89a077";
-            c.lineWidth = 1;
-
-            c.moveTo(ax, ay);
-            c.lineTo(bx, by);
-            c.stroke();
+            $("calcular").disabled = false;
         }
     }
-
-    c.setLineDash([]);
-
-    // Ruta seleccionada.
-
-    if (sistema.ruta) {
-
-        const puntos = sistema.ruta.ruta.map(codigo => {
-
-            const a = sistema.red.aeropuertos.find(
-                p => p.codigo === codigo
-            );
-
-            return proy(a.lat, a.lng);
-        });
-
-        c.beginPath();
-
-        puntos.forEach(([x, y], i) => {
-
-            if (i === 0) {
-                c.moveTo(x, y);
-            } else {
-                c.lineTo(x, y);
-            }
-        });
-
-        c.strokeStyle = "#4ef0db55";
-        c.lineWidth = 12;
-        c.stroke();
-
-        c.strokeStyle = "#56ead7";
-        c.lineWidth = 3;
-        c.stroke();
-    }
-
-    // Puntos de los aeropuertos.
-
-    for (const a of sistema.red.aeropuertos) {
-
-        const [x, y] = proy(a.lat, a.lng);
-
-        const marcado =
-            sistema.ruta?.ruta.includes(a.codigo);
-
-        c.beginPath();
-
-        c.arc(
-            x,
-            y,
-            marcado ? 8 : 5,
-            0,
-            Math.PI * 2
-        );
-
-        c.fillStyle = marcado
-            ? "#54eccb"
-            : "#3cc6ef";
-
-        c.fill();
-
-        c.fillStyle = "#d8f5ff";
-        c.font = "bold 15px sans-serif";
-
-        c.fillText(
-            a.codigo,
-            x + 10,
-            y + 22
-        );
-    }
-
-    // Dibujar el avioncito.
-
-    if (sistema.ruta) {
-
-        const ruta = sistema.ruta.ruta;
-
-        const a = sistema.red.aeropuertos.find(
-            p => p.codigo === ruta[sistema.segmento]
-        );
-
-        const b = sistema.red.aeropuertos.find(
-            p => p.codigo === ruta[sistema.segmento + 1]
-        );
-
-        const origen = proy(a.lat, a.lng);
-        const destino = proy(b.lat, b.lng);
-
-        const t = sistema.progreso;
-
-        const x = origen[0] +
-            (destino[0] - origen[0]) * t;
-
-        const y = origen[1] +
-            (destino[1] - origen[1]) * t;
-
-        const angulo = Math.atan2(
-            destino[0] - origen[0],
-            -(destino[1] - origen[1])
-        );
-
-        c.save();
-
-        c.translate(x, y);
-        c.rotate(angulo);
-
-        c.shadowColor = "#4eeaff";
-        c.shadowBlur = 18;
-
-        c.fillStyle = "#e8ffff";
-        c.strokeStyle = "#237f91";
-        c.lineWidth = 1;
-
-        c.beginPath();
-
-        c.moveTo(0, -22);
-        c.lineTo(4, -8);
-        c.lineTo(20, 4);
-        c.lineTo(20, 9);
-        c.lineTo(4, 4);
-        c.lineTo(4, 16);
-        c.lineTo(9, 20);
-        c.lineTo(9, 23);
-        c.lineTo(0, 21);
-        c.lineTo(-9, 23);
-        c.lineTo(-9, 20);
-        c.lineTo(-4, 16);
-        c.lineTo(-4, 4);
-        c.lineTo(-20, 9);
-        c.lineTo(-20, 4);
-        c.lineTo(-4, -8);
-
-        c.closePath();
-        c.fill();
-        c.stroke();
-        c.restore();
-
-        $("tramo-actual").textContent =
-            `${a.codigo} → ${b.codigo}`;
-
-        $("estado-animacion").textContent =
-            `Tramo ${sistema.segmento + 1} de ` +
-            `${sistema.ruta.tramos.length} - ` +
-            `${Math.round(t * 100)}%`;
-    }
 }
 
-// INICIALIZACIÓN DEL SISTEMA
+// INICIAR AEROROUTE
 
 async function iniciar() {
 
-    inicializarMapa();
-
-    // Botón para buscar ruta.
+    // Buscar ruta.
 
     $("form-vuelos").addEventListener(
         "submit",
-        evento => {
+        (e) => {
 
-            evento.preventDefault();
+            e.preventDefault();
+
             buscarRuta();
         }
     );
 
-    // Intercambiar origen y destino.
+
+    // Intercambiar aeropuertos.
 
     $("intercambiar").addEventListener(
         "click",
         () => {
 
-            const origen = $("origen").value;
-            const destino = $("destino").value;
+            const anterior = $("origen").value;
 
-            $("origen").value = destino;
-            $("destino").value = origen;
+            $("origen").value =
+                $("destino").value;
+
+            $("destino").value =
+                anterior;
         }
     );
+
 
     // Mostrar u ocultar conexiones.
 
     $("mostrar-red").addEventListener(
         "change",
-        evento => {
+        (e) => {
 
-            if (!sistema.mapa) {
-                dibujarMapaLocal();
+            if (!estado.mapa) {
                 return;
             }
 
-            if (evento.target.checked) {
+            if (e.target.checked) {
 
-                sistema.capaConexiones.addTo(
-                    sistema.mapa
+                estado.capaConexiones.addTo(
+                    estado.mapa
                 );
 
             } else {
 
-                sistema.mapa.removeLayer(
-                    sistema.capaConexiones
+                estado.mapa.removeLayer(
+                    estado.capaConexiones
                 );
             }
         }
     );
 
-    // Controles de reproducción.
+
+    // Controles del vuelo.
 
     $("pausa").addEventListener(
         "click",
@@ -1151,35 +1032,37 @@ async function iniciar() {
         iniciarVuelo
     );
 
+
+    // Cargar mapa y datos.
+
     try {
 
-        // Consultar la red del servidor Python.
+        inicializarMapa();
 
-        sistema.red = await pedirJSON("/api/red");
+        estado.red = await pedirJSON("/api/red");
 
-        llenarSelects();
+        llenarSelectores();
 
-        pintarRed();
-
-        // Mostrar ruta inicial GUA - MAD.
+        mostrarRed();
 
         await buscarRuta();
 
     } catch (error) {
 
-        setMensaje(
-            "No se pudo iniciar AeroRoute: " +
-            error.message,
+        mensaje(
+            `No se pudo iniciar AeroRoute: ${error.message}`,
             "error"
         );
+
+        $("mapa-estado").textContent =
+            error.message;
     }
 }
 
-// EJECUTAR AL ABRIR LA PÁGINA
+
+// EJECUTAR
 
 document.addEventListener(
     "DOMContentLoaded",
     iniciar
 );
-
-
