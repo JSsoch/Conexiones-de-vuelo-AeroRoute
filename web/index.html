@@ -1,0 +1,447 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AeroRoute | Sistema de vuelos</title>
+
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <link rel="stylesheet" href="/web/estilos.css">
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        defer>
+    </script>
+
+    <script src="/web/app.js" defer></script>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <!-- PANEL LATERAL -->
+
+    <aside class="panel-lateral">
+
+        <div class="marca">
+            <span class="marca-icono">✈</span>
+
+            <div>
+                <strong>Aero<span>Route</span></strong>
+                <small>FLIGHT ROUTING SYSTEM</small>
+            </div>
+        </div>
+
+        <div class="separador"></div>
+
+        <div class="etiqueta-seccion">
+            PLANIFICADOR DE VUELOS
+        </div>
+
+        <h1>
+            Tu próxima ruta
+            <em>comienza aquí.</em>
+        </h1>
+
+        <p class="descripcion">
+            Explora las conexiones aéreas y descubre
+            la ruta más corta mediante Dijkstra.
+        </p>
+
+        <!-- FORMULARIO -->
+
+        <form id="form-vuelos" class="form-vuelos">
+
+            <label class="campo-label" for="origen">
+                Aeropuerto de salida
+            </label>
+
+            <div class="campo-select">
+                <span class="campo-icono">↗</span>
+
+                <select id="origen" required></select>
+            </div>
+
+            <div class="intercambio">
+                <button
+                    type="button"
+                    id="intercambiar"
+                    title="Intercambiar aeropuertos">
+                    ⇅
+                </button>
+            </div>
+
+            <label class="campo-label" for="destino">
+                Aeropuerto de llegada
+            </label>
+
+            <div class="campo-select">
+                <span class="campo-icono">⌖</span>
+
+                <select id="destino" required></select>
+            </div>
+
+            <div class="separador menor"></div>
+
+            <div class="etiqueta-seccion">
+                PREDICCIÓN DEL VUELO
+            </div>
+
+            <label class="campo-label" for="estado">
+                Estado inicial (Markov)
+            </label>
+
+            <div class="campo-select">
+                <span class="campo-icono">◷</span>
+                <select id="estado"></select>
+            </div>
+
+            <label class="campo-label con-espacio"
+                   for="periodos">
+                Períodos de predicción
+            </label>
+
+            <div class="campo-select">
+                <span class="campo-icono">▤</span>
+
+                <select id="periodos">
+                    <option value="1">1 período</option>
+                    <option value="2">2 períodos</option>
+                    <option value="3" selected>3 períodos</option>
+                    <option value="4">4 períodos</option>
+                    <option value="5">5 períodos</option>
+                    <option value="6">6 períodos</option>
+                </select>
+            </div>
+
+            <button
+                class="boton-principal"
+                id="calcular"
+                type="submit">
+
+                <span>Buscar mejor ruta</span>
+                <span>➜</span>
+            </button>
+
+        </form>
+
+        <div id="mensaje"
+             class="mensaje"
+             role="status">
+            Selecciona un origen y un destino.
+        </div>
+
+        <div class="lateral-footer">
+            <span class="punto-verde"></span>
+            Motor de rutas activo
+
+            <small>
+                Proyecto de Lenguajes Formales y Autómatas
+            </small>
+        </div>
+
+    </aside>
+
+
+    <!-- CONTENIDO PRINCIPAL -->
+
+    <main class="contenido">
+
+        <header class="barra-superior">
+
+            <div>
+                <div class="ruta-miga">
+                    PANEL DE CONTROL / EXPLORADOR DE VUELOS
+                </div>
+
+                <h2>Explorador de rutas aéreas</h2>
+            </div>
+
+            <div class="chip-live">
+                <span></span>
+                SISTEMA EN LÍNEA
+            </div>
+
+        </header>
+
+
+        <!-- ESTADÍSTICAS -->
+
+        <section class="metricas">
+
+            <div class="metrica">
+                <div class="metrica-simbolo">◈</div>
+
+                <div>
+                    <span>Aeropuertos</span>
+                    <strong id="cantidad-aeropuertos">—</strong>
+                    <small>En nuestra red</small>
+                </div>
+            </div>
+
+            <div class="metrica">
+                <div class="metrica-simbolo">↗</div>
+
+                <div>
+                    <span>Conexiones</span>
+                    <strong id="cantidad-conexiones">—</strong>
+                    <small>Vuelos dirigidos</small>
+                </div>
+            </div>
+
+            <div class="metrica">
+                <div class="metrica-simbolo">⌁</div>
+
+                <div>
+                    <span>Ruta más corta</span>
+                    <strong id="distancia-principal">—</strong>
+                    <small>Distancia total (km)</small>
+                </div>
+            </div>
+
+            <div class="metrica">
+                <div class="metrica-simbolo">◉</div>
+
+                <div>
+                    <span>Escalas</span>
+                    <strong id="cantidad-escalas">—</strong>
+                    <small>En la ruta óptima</small>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- MAPA INTERACTIVO -->
+
+        <section class="mapa-tarjeta">
+
+            <div class="mapa-encabezado">
+
+                <div>
+                    <span class="sobrelinea">
+                        VISUALIZACIÓN INTERACTIVA
+                    </span>
+
+                    <h3>Mapa de conexiones</h3>
+                </div>
+
+                <div class="mapa-controles">
+
+                    <label class="toggle">
+                        <input
+                            type="checkbox"
+                            id="mostrar-red"
+                            checked>
+
+                        Mostrar conexiones
+                    </label>
+
+                    <span class="punto-vivo"></span>
+                    <span class="mapa-badge">LIVE MAP</span>
+
+                </div>
+
+            </div>
+
+            <div class="mapa-zona" id="mapa-zona">
+
+                <div id="mapa"></div>
+
+                <div class="mapa-gradiente"></div>
+
+                <div class="mapa-info" id="mapa-info">
+
+                    <span>RECORRIDO ACTUAL</span>
+
+                    <strong id="mapa-ruta-texto">
+                        Selecciona una ruta
+                    </strong>
+
+                    <small id="mapa-estado">
+                        Preparando visualización...
+                    </small>
+                </div>
+
+                <!-- MAPA ALTERNATIVO SIN LEAFLET -->
+
+                <div id="mapa-fallback" hidden>
+
+                    <canvas
+                        id="mapa-local"
+                        width="1100"
+                        height="620">
+                    </canvas>
+
+                    <span class="modo-local">
+                        MAPA ILUSTRATIVO
+                    </span>
+
+                </div>
+
+                <div class="mapa-leyenda">
+
+                    <span>
+                        <i class="leyenda-circulo"></i>
+                        Aeropuerto
+                    </span>
+
+                    <span>
+                        <i class="leyenda-linea"></i>
+                        Ruta óptima
+                    </span>
+
+                    <span>✈ Avión animado</span>
+
+                </div>
+
+            </div>
+
+
+            <!-- CONTROLES DE ANIMACIÓN -->
+
+            <div class="reproduccion">
+
+                <div class="reproduccion-izq">
+
+                    <span class="icono-play">✈</span>
+
+                    <div>
+                        <strong id="tramo-actual">
+                            Vuelo preparado
+                        </strong>
+
+                        <small id="estado-animacion">
+                            Busca una ruta para comenzar
+                        </small>
+                    </div>
+
+                </div>
+
+                <div class="reproduccion-der">
+
+                    <label for="velocidad">
+                        Velocidad
+                    </label>
+
+                    <select id="velocidad">
+                        <option value="1">1×</option>
+                        <option value="2" selected>2×</option>
+                        <option value="3">3×</option>
+                    </select>
+
+                    <button id="pausa"
+                            type="button"
+                            disabled>
+                        ❚❚ Pausar
+                    </button>
+
+                    <button id="reiniciar"
+                            type="button"
+                            disabled>
+                        ↻ Repetir vuelo
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- RESULTADOS -->
+
+        <section class="resultados">
+
+            <!-- DIJKSTRA Y AUTÓMATA -->
+
+            <article class="tarjeta-resultado">
+
+                <div class="resultado-cabecera">
+
+                    <div>
+                        <span class="sobrelinea">
+                            DIJKSTRA + AUTÓMATA
+                        </span>
+
+                        <h3>Itinerario óptimo</h3>
+                    </div>
+
+                    <span id="sello-validacion"
+                          class="sello gris">
+                        Sin calcular
+                    </span>
+
+                </div>
+
+                <div id="resumen-ruta"
+                     class="resumen-ruta">
+                    El recorrido aparecerá aquí.
+                </div>
+
+                <div id="tramos" class="tramos"></div>
+
+            </article>
+
+
+            <!-- MARKOV -->
+
+            <article class="tarjeta-resultado">
+
+                <div class="resultado-cabecera">
+
+                    <div>
+                        <span class="sobrelinea">
+                            CADENAS DE MARKOV
+                        </span>
+
+                        <h3>Predicción del vuelo</h3>
+                    </div>
+
+                    <span class="sello azul">
+                        SIMULACIÓN
+                    </span>
+
+                </div>
+
+                <p class="texto-resultado">
+                    Probabilidades del estado del vuelo
+                    según la matriz de transición.
+                </p>
+
+                <div id="prediccion"
+                     class="prediccion-vacia">
+                    Calcula una ruta para ver las probabilidades.
+                </div>
+
+                <small class="nota">
+                    Modelo académico. No representa
+                    retrasos de vuelos reales.
+                </small>
+
+            </article>
+
+        </section>
+
+        <footer class="pie">
+
+            AeroRoute - Sistema de conexiones aéreas
+
+            <span>
+                Proyecto de Lenguajes Formales y Autómatas
+            </span>
+
+        </footer>
+
+    </main>
+
+</div>
+
+</body>
+</html>
