@@ -58,7 +58,7 @@
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>Simulador Markov</span>
                 </a>
-                <a href="#panel-grafos" class="nav-item">
+                <a href="#panel-grafos" class="nav-item" id="nav-btn-grafos" onclick="event.preventDefault(); window.sistema?.abrirDrawer?.();">
                     <i class="fa-solid fa-circle-nodes"></i>
                     <span>Editor de Red (Grafos)</span>
                 </a>
@@ -287,141 +287,170 @@
         </div>
     </section>
 
+    <!-- ======================================================== -->
+    <!-- MENÚ DESPLEGABLE (DRAWER LATERAL): GESTOR DE RED G=(V,E) -->
+    <!-- ======================================================== -->
+    <div id="drawer-backdrop" class="drawer-backdrop" aria-hidden="true"></div>
+
+    <aside id="panel-grafos" class="drawer-panel" aria-label="Gestor de Red Dirigida G=(V,E)" aria-hidden="true">
+        <div class="drawer-contenido">
+            
+            <!-- Cabecera del Drawer -->
+            <div class="drawer-cabecera">
+                <div class="drawer-titulo-bloque">
+                    <div class="icono-pequeno">
+                        <i class="fa-solid fa-network-wired"></i>
+                    </div>
+                    <div>
+                        <h2 class="drawer-titulo">Gestor de Red Dirigida G=(V,E)</h2>
+                        <p class="drawer-subtitulo">Inserción de Vértices y Aristas Ponderadas</p>
+                    </div>
+                </div>
+                <button type="button" id="close-drawer-btn" class="btn-cerrar-drawer" title="Cerrar panel">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Cuerpo Desplazable del Drawer -->
+            <div class="drawer-cuerpo">
+                
+                <div class="estado-grafo-fila">
+                    <span class="estado-grafo-label">Estado del Grafo:</span>
+                    <span class="badge-tag-memoria">En Memoria • Conexo</span>
+                </div>
+
+                <p class="gestor-descripcion">
+                    Inserción dinámica de vértices aeroportuarios y aristas ponderadas dirigidas. Recalcula el árbol de Dijkstra de forma reactiva.
+                </p>
+
+                <!-- FORMULARIO 1: AGREGAR NODO -->
+                <div class="subtarjeta-editor">
+                    <div class="subtarjeta-cabecera">
+                        <h3><i class="fa-solid fa-location-dot"></i> Agregar Vértice (Aeropuerto)</h3>
+                        <span class="mono texto-muted-xs">v ∈ V</span>
+                    </div>
+
+                    <form id="form-nodo" class="formulario-editor" autocomplete="off">
+                        <div class="campo-editor">
+                            <label for="nuevo-codigo">Código IATA (3 letras)</label>
+                            <input id="nuevo-codigo" class="control-input mono uppercase" type="text" maxlength="3" pattern="[A-Za-z]{2,3}" placeholder="Ej. CUN, BOG, LIM" required>
+                        </div>
+
+                        <div class="campo-editor">
+                            <label for="nuevo-nombre">Nombre de la Terminal</label>
+                            <input id="nuevo-nombre" class="control-input" type="text" maxlength="120" placeholder="Ej. Cancún Internacional" required>
+                        </div>
+
+                        <div class="fila-doble">
+                            <div class="campo-editor">
+                                <label for="nueva-lat">Latitud (°N)</label>
+                                <input id="nueva-lat" class="control-input mono" type="number" step="any" min="-90" max="90" placeholder="21.0365" required>
+                            </div>
+                            <div class="campo-editor">
+                                <label for="nueva-lon">Longitud (°W)</label>
+                                <input id="nueva-lon" class="control-input mono" type="number" step="any" min="-180" max="180" placeholder="-86.8770" required>
+                            </div>
+                        </div>
+
+                        <p class="ayuda-mapa-clic">
+                            <i class="fa-solid fa-hand-pointer"></i> Haz clic en el mapa para autocompletar coordenadas.
+                        </p>
+
+                        <button class="btn-subformulario" type="submit">
+                            <i class="fa-solid fa-plus"></i> Registrar Vértice V
+                        </button>
+                    </form>
+                </div>
+
+                <!-- FORMULARIO 2: AGREGAR ARISTA -->
+                <div class="subtarjeta-editor">
+                    <div class="subtarjeta-cabecera">
+                        <h3><i class="fa-solid fa-link texto-dorado"></i> Agregar Arista Dirigida (u → v)</h3>
+                        <span class="mono texto-muted-xs">e ∈ E, w(e)&gt;0</span>
+                    </div>
+
+                    <form id="form-arista" class="formulario-editor">
+                        <div class="fila-doble">
+                            <div class="campo-editor">
+                                <label for="arista-origen">Origen (u)</label>
+                                <div class="selector-envoltorio">
+                                    <select id="arista-origen" class="control-select compacto" required></select>
+                                </div>
+                            </div>
+                            <div class="campo-editor">
+                                <label for="arista-destino">Destino (v)</label>
+                                <div class="selector-envoltorio">
+                                    <select id="arista-destino" class="control-select compacto" required></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="campo-editor">
+                            <label for="arista-distancia">Peso Ponderado w(u, v) (km)</label>
+                            <div class="input-con-sufijo">
+                                <input id="arista-distancia" class="control-input mono" type="number" step="any" min="1" placeholder="1050" required>
+                                <span class="sufijo-input mono">km</span>
+                            </div>
+                        </div>
+
+                        <label class="control-checkbox" for="arista-bidireccional">
+                            <input id="arista-bidireccional" type="checkbox">
+                            <span>Arista Bidireccional (u ↔ v)</span>
+                        </label>
+
+                        <button class="btn-subformulario btn-arista" type="submit">
+                            <i class="fa-solid fa-plus-circle"></i> Insertar Arista al Grafo
+                        </button>
+                    </form>
+                </div>
+
+                <div id="mensaje-editor" class="mensaje-editor" role="status">
+                    Los cambios se conservan temporalmente en la memoria activa del servidor.
+                </div>
+
+            </div>
+
+            <!-- Pie del Drawer -->
+            <div class="drawer-pie mono">
+                <span>Grafo conexo ponderado G</span>
+                <span>Almacenamiento: RAM</span>
+            </div>
+
+        </div>
+    </aside>
 
     <!-- ======================================================== -->
-    <!-- CUERPO PRINCIPAL: GESTOR DE RED Y MAPA CARTOGRÁFICO SIG  -->
+    <!-- CUERPO PRINCIPAL: VISOR CARTOGRÁFICO SIG & TELEMETRÍA  -->
     <!-- ======================================================== -->
     <main class="seccion-principal">
         <div class="contenedor-ancho">
-            <div class="distribucion-principal">
-
-                <!-- COLUMNA IZQUIERDA: GESTOR DE GRAFO G=(V,E) -->
-                <aside class="columna-lateral" id="panel-grafos">
-                    <div class="tarjeta-superficie tarjeta-gestor">
-
-                        <div class="gestor-cabecera">
-                            <div class="gestor-titulo-bloque">
-                                <div class="icono-pequeno">
-                                    <i class="fa-solid fa-network-wired"></i>
-                                </div>
-                                <h2 class="gestor-titulo">Gestor de Red G=(V,E)</h2>
-                            </div>
-                            <span class="badge-tag-memoria">En Memoria</span>
-                        </div>
-
-                        <p class="gestor-descripcion">
-                            Inserción dinámica de vértices aeroportuarios y aristas ponderadas dirigidas. Recalcula el árbol de Dijkstra de forma reactiva.
-                        </p>
-
-                        <!-- FORMULARIO 1: AGREGAR NODO -->
-                        <div class="subtarjeta-editor">
-                            <div class="subtarjeta-cabecera">
-                                <h3><i class="fa-solid fa-location-dot"></i> Agregar Vértice (Aeropuerto)</h3>
-                                <span class="mono texto-muted-xs">v ∈ V</span>
-                            </div>
-
-                            <form id="form-nodo" class="formulario-editor" autocomplete="off">
-                                <div class="campo-editor">
-                                    <label for="nuevo-codigo">Código IATA (3 letras)</label>
-                                    <input id="nuevo-codigo" class="control-input mono uppercase" type="text" maxlength="3" pattern="[A-Za-z]{2,3}" placeholder="Ej. CUN, BOG, LIM" required>
-                                </div>
-
-                                <div class="campo-editor">
-                                    <label for="nuevo-nombre">Nombre de la Terminal</label>
-                                    <input id="nuevo-nombre" class="control-input" type="text" maxlength="120" placeholder="Ej. Cancún Internacional" required>
-                                </div>
-
-                                <div class="fila-doble">
-                                    <div class="campo-editor">
-                                        <label for="nueva-lat">Latitud (°N)</label>
-                                        <input id="nueva-lat" class="control-input mono" type="number" step="any" min="-90" max="90" placeholder="21.0365" required>
-                                    </div>
-                                    <div class="campo-editor">
-                                        <label for="nueva-lon">Longitud (°W)</label>
-                                        <input id="nueva-lon" class="control-input mono" type="number" step="any" min="-180" max="180" placeholder="-86.8770" required>
-                                    </div>
-                                </div>
-
-                                <p class="ayuda-mapa-clic">
-                                    <i class="fa-solid fa-hand-pointer"></i> Haz clic en el mapa para autocompletar coordenadas.
-                                </p>
-
-                                <button class="btn-subformulario" type="submit">
-                                    <i class="fa-solid fa-plus"></i> Registrar Vértice V
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- FORMULARIO 2: AGREGAR ARISTA -->
-                        <div class="subtarjeta-editor">
-                            <div class="subtarjeta-cabecera">
-                                <h3><i class="fa-solid fa-link texto-dorado"></i> Agregar Arista Dirigida (u → v)</h3>
-                                <span class="mono texto-muted-xs">e ∈ E, w(e)&gt;0</span>
-                            </div>
-
-                            <form id="form-arista" class="formulario-editor">
-                                <div class="fila-doble">
-                                    <div class="campo-editor">
-                                        <label for="arista-origen">Origen (u)</label>
-                                        <div class="selector-envoltorio">
-                                            <select id="arista-origen" class="control-select compacto" required></select>
-                                        </div>
-                                    </div>
-                                    <div class="campo-editor">
-                                        <label for="arista-destino">Destino (v)</label>
-                                        <div class="selector-envoltorio">
-                                            <select id="arista-destino" class="control-select compacto" required></select>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="campo-editor">
-                                    <label for="arista-distancia">Peso Ponderado w(u, v) (km)</label>
-                                    <div class="input-con-sufijo">
-                                        <input id="arista-distancia" class="control-input mono" type="number" step="any" min="1" placeholder="1050" required>
-                                        <span class="sufijo-input mono">km</span>
-                                    </div>
-                                </div>
-
-                                <label class="control-checkbox" for="arista-bidireccional">
-                                    <input id="arista-bidireccional" type="checkbox">
-                                    <span>Arista Bidireccional (u ↔ v)</span>
-                                </label>
-
-                                <button class="btn-subformulario btn-arista" type="submit">
-                                    <i class="fa-solid fa-plus-circle"></i> Insertar Arista al Grafo
-                                </button>
-                            </form>
-                        </div>
-
-                        <div id="mensaje-editor" class="mensaje-editor" role="status">
-                            Los cambios se conservan temporalmente en la memoria activa del servidor.
-                        </div>
-
-                        <div class="gestor-pie mono">
-                            <span>Grafo conexo ponderado G</span>
-                            <span>Almacenamiento: RAM</span>
-                        </div>
-
-                    </div>
-                </aside>
-
-
-                <!-- COLUMNA DERECHA: VISOR CARTOGRÁFICO SIG & ANIMACIÓN -->
-                <section class="columna-mapa">
+            <!-- SECCIÓN DEL MAPA A ANCHO COMPLETO -->
+            <section class="seccion-mapa-completo" id="seccion-visor-mapa">
                     <div class="tarjeta-superficie tarjeta-mapa-sig">
 
                         <!-- Barra de Herramientas del Mapa -->
                         <div class="mapa-sig-cabecera">
+                        <div class="sig-herramientas-izquierda">
+                            
+                            <!-- Botón Prominente del Gestor de Red Desplegable -->
+                            <button type="button" id="open-drawer-btn" class="btn-abrir-drawer" title="Abrir Gestor de Red G=(V,E)">
+                                <i class="fa-solid fa-network-wired"></i>
+                                <span>Gestor de Red G=(V,E)</span>
+                                <span id="badge-drawer-contadores" class="badge-drawer-contadores mono">10N • 18A</span>
+                            </button>
+
+                            <span class="separador-barra-toolbar hidden-sm">|</span>
+
                             <div class="sig-titulo-grupo">
                                 <span class="punto-verde-sig"></span>
                                 <span class="sig-etiqueta mono">VISOR CARTOGRÁFICO SIG</span>
                             </div>
+                        </div>
 
-                            <div class="sig-acciones-derecha">
+                        <div class="sig-acciones-derecha">
                                 <label class="control-toggle-red">
                                     <input type="checkbox" id="mostrar-red" checked>
-                                    <span>Red de conexiones visible</span>
+                                    <span id="label-aristas-visibles">18 aristas visibles</span>
                                 </label>
                                 <button type="button" class="btn-centrar-ruta" onclick="if(window.sistema && window.sistema.mapa) window.sistema.mapa.setView([14, -67], 3)">
                                     <i class="fa-solid fa-arrows-split-up-and-left"></i>
@@ -514,9 +543,6 @@
 
                     </div>
                 </section>
-
-            </div>
-
 
             <!-- ======================================================== -->
             <!-- SECCIÓN INFERIOR: MÉTODOS FORMALES (DIJKSTRA & MARKOV)   -->

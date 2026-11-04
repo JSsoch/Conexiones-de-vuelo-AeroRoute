@@ -798,73 +798,142 @@ a {
 
 
 /* ==========================================================================
-   CUERPO PRINCIPAL: DISTRIBUCIÓN EN 2 COLUMNAS
+   MENÚ DESPLEGABLE (DRAWER LATERAL): GESTOR DE RED G=(V,E)
    ========================================================================== */
 
-.seccion-principal {
-    padding-bottom: 48px;
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(18, 33, 46, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
 }
 
-.distribucion-principal {
-    display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
+.drawer-backdrop.activo {
+    opacity: 1;
+    pointer-events: auto;
 }
 
-@media (max-width: 1024px) {
-    .distribucion-principal {
-        grid-template-columns: 1fr;
-    }
-}
-
-.tarjeta-superficie {
+.drawer-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 440px;
+    max-width: 90vw;
     background-color: #FFFFFF;
-    border: 1px solid rgba(48, 112, 130, 0.2);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 20px 45px -10px rgba(18, 33, 46, 0.35), 0 0 25px rgba(0, 0, 0, 0.12);
+    z-index: 1001;
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(48, 112, 130, 0.3);
+}
+
+.drawer-panel.activo {
+    transform: translateX(0);
+}
+
+.drawer-contenido {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     overflow: hidden;
 }
 
-
-/* ==========================================================================
-   COLUMNA IZQUIERDA: GESTOR DE GRAFO G=(V,E)
-   ========================================================================== */
-
-.tarjeta-gestor {
-    padding: 20px;
-}
-
-.gestor-cabecera {
+.drawer-cabecera {
+    background-color: var(--brand-navy);
+    color: #FFFFFF;
+    padding: 16px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--surface-sunken);
+    border-bottom: 1px solid rgba(48, 112, 130, 0.4);
 }
 
-.gestor-titulo-bloque {
+.drawer-titulo-bloque {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .icono-pequeno {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
-    background-color: var(--brand-navy);
-    color: var(--brand-ochre);
+    background-color: var(--brand-ochre);
+    color: var(--brand-navy);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-.gestor-titulo {
+.drawer-titulo {
     font-family: var(--font-serif);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 0.02em;
+}
+
+.drawer-subtitulo {
+    font-size: 11px;
+    color: var(--brand-seafoam);
+    margin-top: 1px;
+}
+
+.btn-cerrar-drawer {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--canvas);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cerrar-drawer:hover {
+    background: rgba(255, 255, 255, 0.22);
+    color: #FFFFFF;
+    transform: scale(1.05);
+}
+
+.drawer-cuerpo {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: var(--surface-light);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.estado-grafo-fila {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #FFFFFF;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(48, 112, 130, 0.2);
+    font-size: 12px;
+    box-shadow: 0 1px 3px rgba(18, 33, 46, 0.04);
+}
+
+.estado-grafo-label {
+    font-weight: 600;
     color: var(--text-navy);
 }
 
@@ -872,7 +941,7 @@ a {
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 700;
-    padding: 2px 7px;
+    padding: 2px 8px;
     background: rgba(108, 163, 162, 0.2);
     color: var(--brand-teal);
     border: 1px solid rgba(108, 163, 162, 0.4);
@@ -881,19 +950,18 @@ a {
 
 .gestor-descripcion {
     font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 10px;
-    margin-bottom: 16px;
-    line-height: 1.45;
+    color: var(--brand-teal);
+    line-height: 1.5;
+    margin: 0;
 }
 
 /* Subtarjetas de Formularios de Edición */
 .subtarjeta-editor {
-    background-color: var(--surface-light);
+    background-color: #FFFFFF;
     border: 1px solid rgba(48, 112, 130, 0.2);
     border-radius: var(--radius-md);
     padding: 14px;
-    margin-bottom: 14px;
+    box-shadow: 0 2px 6px rgba(18, 33, 46, 0.03);
 }
 
 .subtarjeta-cabecera {
@@ -943,7 +1011,7 @@ a {
     font-size: 12px;
     color: var(--text-navy);
     outline: none;
-    transition: border-color 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .control-input:focus {
@@ -1020,6 +1088,7 @@ a {
     align-items: center;
     justify-content: center;
     gap: 6px;
+    cursor: pointer;
     transition: all 0.2s ease;
 }
 
@@ -1049,25 +1118,45 @@ a {
 
 .mensaje-editor {
     font-size: 11px;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: var(--radius-sm);
     background: rgba(108, 163, 162, 0.12);
     border: 1px solid rgba(108, 163, 162, 0.3);
-    color: var(--text-muted);
-    margin-top: 8px;
+    color: var(--brand-teal);
+    margin-top: 4px;
     text-align: center;
 }
 
-.gestor-pie {
-    margin-top: 14px;
-    padding-top: 10px;
+.drawer-pie {
+    padding: 12px 20px;
+    background-color: #FFFFFF;
     border-top: 1px solid var(--surface-sunken);
     display: flex;
+    align-items: center;
     justify-content: space-between;
     font-size: 11px;
     color: var(--brand-teal);
 }
 
+/* ==========================================================================
+   SECCIÓN DEL MAPA A ANCHO COMPLETO (CONTENEDOR PRINCIPAL)
+   ========================================================================== */
+
+.seccion-principal {
+    padding-bottom: 48px;
+}
+
+.seccion-mapa-completo {
+    width: 100%;
+}
+
+.tarjeta-superficie {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(48, 112, 130, 0.2);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
 
 /* ==========================================================================
    COLUMNA DERECHA: VISOR CARTOGRÁFICO SIG & TELEMETRÍA
@@ -1087,6 +1176,64 @@ a {
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.sig-herramientas-izquierda {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.btn-abrir-drawer {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--brand-navy);
+    color: #FFFFFF;
+    border: 1px solid rgba(48, 112, 130, 0.4);
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(18, 33, 46, 0.12);
+    transition: all 0.2s ease;
+}
+
+.btn-abrir-drawer:hover {
+    background-color: var(--brand-teal);
+    color: #FFFFFF;
+    border-color: var(--brand-seafoam);
+    box-shadow: 0 4px 12px rgba(48, 112, 130, 0.2);
+}
+
+.btn-abrir-drawer i {
+    color: var(--brand-ochre);
+    font-size: 12px;
+}
+
+.badge-drawer-contadores {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    background-color: var(--brand-teal);
+    color: var(--canvas);
+    border: 1px solid rgba(108, 163, 162, 0.4);
+    border-radius: 9999px;
+    letter-spacing: 0.03em;
+}
+
+.separador-barra-toolbar {
+    color: rgba(108, 163, 162, 0.4);
+    font-size: 14px;
+}
+
+@media (max-width: 640px) {
+    .hidden-sm {
+        display: none !important;
+    }
 }
 
 .sig-titulo-grupo {

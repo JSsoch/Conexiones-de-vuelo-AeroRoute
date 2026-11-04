@@ -169,11 +169,8 @@ function inicializarMapa() {
         $("nueva-lon").value =
             e.latlng.lng.toFixed(4);
 
-        const panel =
-            document.querySelector(".panel-edicion");
-
-        if (panel) {
-            panel.open = true;
+        if (typeof sistema.abrirDrawer === "function") {
+            sistema.abrirDrawer();
         }
 
         mensajeEditor(
@@ -495,6 +492,16 @@ function llenarSelectores() {
 
     $("cantidad-conexiones").textContent =
         sistema.red.total_conexiones;
+
+    const badgeDrawer = $("badge-drawer-contadores");
+    if (badgeDrawer) {
+        badgeDrawer.textContent = `${sistema.red.total_aeropuertos}N • ${sistema.red.total_conexiones}A`;
+    }
+
+    const labelAristas = $("label-aristas-visibles");
+    if (labelAristas) {
+        labelAristas.textContent = `${sistema.red.total_conexiones} aristas visibles`;
+    }
 }
 
 // MOSTRAR RUTA ÓPTIMA EN EL MAPA
@@ -1251,9 +1258,74 @@ async function buscarRuta() {
     }
 }
 
+// CONTROLADOR DEL MENÚ DESPLEGABLE (DRAWER LATERAL)
+
+function configurarDrawer() {
+
+    const btnAbrir = $("open-drawer-btn");
+    const btnCerrar = $("close-drawer-btn");
+    const drawer = $("panel-grafos");
+    const backdrop = $("drawer-backdrop");
+    const navBtn = $("nav-btn-grafos") || document.querySelector('a[href="#panel-grafos"]');
+
+    function abrirDrawer() {
+        if (!drawer || !backdrop) return;
+        drawer.classList.add("activo");
+        backdrop.classList.add("activo");
+        drawer.setAttribute("aria-hidden", "false");
+
+        const primerCampo = $("nuevo-codigo");
+        if (primerCampo) {
+            setTimeout(() => primerCampo.focus(), 250);
+        }
+
+        setTimeout(() => {
+            if (sistema.mapa) {
+                sistema.mapa.invalidateSize();
+            }
+        }, 350);
+    }
+
+    function cerrarDrawer() {
+        if (!drawer || !backdrop) return;
+        drawer.classList.remove("activo");
+        backdrop.classList.remove("activo");
+        drawer.setAttribute("aria-hidden", "true");
+
+        setTimeout(() => {
+            if (sistema.mapa) {
+                sistema.mapa.invalidateSize();
+            }
+        }, 350);
+    }
+
+    if (btnAbrir) btnAbrir.addEventListener("click", abrirDrawer);
+    if (btnCerrar) btnCerrar.addEventListener("click", cerrarDrawer);
+    if (backdrop) backdrop.addEventListener("click", cerrarDrawer);
+
+    if (navBtn) {
+        navBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            abrirDrawer();
+        });
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && drawer && drawer.classList.contains("activo")) {
+            cerrarDrawer();
+        }
+    });
+
+    sistema.abrirDrawer = abrirDrawer;
+    sistema.cerrarDrawer = cerrarDrawer;
+}
+
 // INICIAR AEROROUTE
 
 async function iniciar() {
+
+    configurarDrawer();
+
 
     // Desplazamiento rápido al análisis formal en caso de fallo
     const btnScroll = $("btn-scroll-analisis");
