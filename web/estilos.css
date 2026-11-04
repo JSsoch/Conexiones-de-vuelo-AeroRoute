@@ -60,6 +60,21 @@ button:disabled {
         #09121f
     );
     border-right: 1px solid var(--borde);
+    scrollbar-width: thin;
+    scrollbar-color: #2b4a66 #0b1527;
+}
+
+.panel-lateral::-webkit-scrollbar {
+    width: 8px;
+}
+
+.panel-lateral::-webkit-scrollbar-track {
+    background: #0b1527;
+}
+
+.panel-lateral::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: #2b4a66;
 }
 
 /* LOGOTIPO */
@@ -264,6 +279,7 @@ button:disabled {
 /* EDITOR DEL GRAFO */
 
 .panel-edicion {
+    flex-shrink: 0;
     border: 1px solid #29405c;
     border-radius: 10px;
     background: #101f33;
