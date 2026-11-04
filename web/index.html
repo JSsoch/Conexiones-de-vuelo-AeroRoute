@@ -19,11 +19,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
     <!-- Estilos AeroRoute Atelier -->
-    <link rel="stylesheet" href="/web/estilos.css">
+    <link rel="stylesheet" href="/web/estilos.css?v=20261103c">
 
     <!-- Leaflet JS y App JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-    <script src="/web/app.js" defer></script>
+    <script src="/web/app.js?v=20261103c" defer></script>
 </head>
 
 <body class="aeroroute-atelier">
@@ -178,6 +178,26 @@
                     </div>
 
                 </form>
+
+                <!-- Banner Alerta de Ruta Imposible en el Hero -->
+                <div id="hero-alerta-ruta" class="hero-aviso-error" style="display: none;" role="alert">
+                    <div class="hero-aviso-icono">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="hero-aviso-cuerpo">
+                        <div class="hero-aviso-titulo-fila">
+                            <strong class="hero-aviso-titulo" id="hero-alerta-titulo">Ruta No Factible</strong>
+                            <span class="hero-aviso-badge mono">d = ∞ (Inconexa)</span>
+                        </div>
+                        <p class="hero-aviso-motivo" id="hero-alerta-motivo">
+                            No existe conexión dirigida disponible en el grafo actual.
+                        </p>
+                    </div>
+                    <button type="button" class="btn-scroll-analisis" id="btn-scroll-analisis" title="Desplazarse al informe formal">
+                        <span>Ver Análisis</span>
+                        <i class="fa-solid fa-arrow-down"></i>
+                    </button>
+                </div>
 
                 <!-- Barra Inferior de Verificación -->
                 <div class="hero-barra-verificacion">

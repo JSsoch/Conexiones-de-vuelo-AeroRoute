@@ -633,6 +633,11 @@ function mostrarRutaEnMapa(resultado) {
 
 function mostrarResultados(r) {
 
+    const heroAlerta = $("hero-alerta-ruta");
+    if (heroAlerta) {
+        heroAlerta.style.display = "none";
+    }
+
     $("distancia-principal").textContent =
         formatoNumero(r.distancia_total);
 
@@ -840,6 +845,13 @@ function mostrarRutaImposible(origen, destino, error) {
 
     $("sello-validacion").textContent =
         "✗ RUTA IMPOSIBLE";
+
+    const heroAlerta = $("hero-alerta-ruta");
+    if (heroAlerta) {
+        $("hero-alerta-titulo").textContent = `Itinerario No Factible (${origen} ➔ ${destino})`;
+        $("hero-alerta-motivo").textContent = error.message;
+        heroAlerta.style.display = "flex";
+    }
 
     const pOrigen = sistema.pines.get(origen);
     const pDestino = sistema.pines.get(destino);
@@ -1183,9 +1195,10 @@ async function buscarRuta() {
     });
 
 
+    const tInicio = performance.now();
+
     try {
 
-        const tInicio = performance.now();
         const resultado = await pedirJSON(
             `/api/ruta?${parametros}`
         );
@@ -1241,6 +1254,17 @@ async function buscarRuta() {
 // INICIAR AEROROUTE
 
 async function iniciar() {
+
+    // Desplazamiento rápido al análisis formal en caso de fallo
+    const btnScroll = $("btn-scroll-analisis");
+    if (btnScroll) {
+        btnScroll.addEventListener("click", () => {
+            const el = $("analisis-formal");
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth" });
+            }
+        });
+    }
 
     // Buscar ruta.
 
