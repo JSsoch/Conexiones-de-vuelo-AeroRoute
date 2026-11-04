@@ -194,7 +194,6 @@ El catálogo inicial cuenta con conexiones estratégicas intercontinentales:
 
 ## 👨‍💻 Autores y Créditos
 
-* **Desarrollo e Integración:** LuM-343
 * **Asignatura:** Lenguajes Formales y Autómatas
 * **Semestre:** Cuarto Semestre de Ingeniería de Sistemas
 * **Diseño UI & Prototipado:** Google Stitch (*Atelier Voyage Theme*)
