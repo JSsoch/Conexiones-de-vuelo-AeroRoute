@@ -6,7 +6,18 @@ ALFABETO = [
 ]
 
 
+def sincronizar_alfabeto(grafo):
+    """Incorpora al alfabeto formal los nodos nuevos del grafo activo."""
+
+    for codigo in grafo:
+        if codigo not in ALFABETO:
+            ALFABETO.append(codigo)
+
+
 def validar_ruta(ruta, origen, destino, grafo):
+
+    # Mantener el alfabeto sincronizado con los nodos agregados en vivo.
+    sincronizar_alfabeto(grafo)
 
     # Verificar que la ruta no este vacia
     if not ruta:

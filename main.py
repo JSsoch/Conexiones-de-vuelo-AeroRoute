@@ -2,13 +2,14 @@
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from math import isfinite
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from aeropuertos import GrafoAeropuertos
+from aeropuertos import GrafoAeropuertos, normalizar_codigo
 from dijkstra import calcular_dijkstra
 from automata import grafo as GRAFO_PROPUESTA
-from automata import validar_ruta, calcular_peso_ruta
+from automata import sincronizar_alfabeto, validar_ruta, calcular_peso_ruta
 from markov import (
     ESTADOS,
     MATRIZ_TRANSICION,
@@ -89,25 +90,17 @@ def construir_red():
 
         nombre = AEROPUERTOS[codigo]["nombre"]
 
-        if len(codigo) == 3:
-            red.registrar_aeropuerto(codigo, nombre)
-        else:
-            # BR tiene dos letras en la propuesta.
-            red.aeropuertos[codigo] = nombre
-            red.grafo[codigo] = {}
+        red.registrar_aeropuerto(codigo, nombre)
 
     for origen, destinos in GRAFO_PROPUESTA.items():
 
         for destino, distancia in destinos.items():
 
-            if len(origen) == 3 and len(destino) == 3:
-                red.registrar_vuelo(
-                    origen,
-                    destino,
-                    distancia
-                )
-            else:
-                red.grafo[origen][destino] = float(distancia)
+            red.registrar_vuelo(
+                origen,
+                destino,
+                distancia
+            )
 
     return red
 
@@ -148,6 +141,168 @@ def datos_red():
         "total_conexiones": len(conexiones),
         "estados": ESTADOS,
         "matriz_markov": MATRIZ_TRANSICION
+    }
+
+# EDICIÓN DEL GRAFO EN MEMORIA
+
+def _numero(datos, clave, etiqueta):
+    """Convierte un campo JSON a float y rechaza valores no finitos."""
+
+    if clave not in datos:
+        raise ValueError(f"Falta el campo '{clave}'.")
+
+    valor = datos[clave]
+
+    if isinstance(valor, bool):
+        raise ValueError(f"{etiqueta} debe ser un número válido.")
+
+    try:
+        numero = float(valor)
+
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(
+            f"{etiqueta} debe ser un número válido."
+        ) from None
+
+    if not isfinite(numero):
+        raise ValueError(f"{etiqueta} debe ser un número finito.")
+
+    return numero
+
+
+def agregar_aeropuerto(datos):
+    """Valida y registra un aeropuerto nuevo en la red activa."""
+
+    if "codigo" not in datos:
+        raise ValueError("Falta el campo 'codigo'.")
+
+    codigo = normalizar_codigo(datos["codigo"])
+
+    if codigo in RED.grafo:
+        raise ValueError(f"El aeropuerto '{codigo}' ya está registrado.")
+
+    if "nombre" not in datos:
+        raise ValueError("Falta el campo 'nombre'.")
+
+    nombre = datos["nombre"]
+
+    if not isinstance(nombre, str) or not nombre.strip():
+        raise ValueError("El nombre del aeropuerto no puede estar vacío.")
+
+    nombre = nombre.strip()
+
+    if len(nombre) > 120:
+        raise ValueError("El nombre del aeropuerto es demasiado largo.")
+
+    lat = _numero(datos, "lat", "La latitud")
+
+    if "lon" in datos:
+        clave_lon = "lon"
+    elif "lng" in datos:
+        clave_lon = "lng"
+    else:
+        raise ValueError("Falta el campo 'lon'.")
+
+    lon = _numero(datos, clave_lon, "La longitud")
+
+    if not -90 <= lat <= 90:
+        raise ValueError("La latitud debe estar entre -90 y 90.")
+
+    if not -180 <= lon <= 180:
+        raise ValueError("La longitud debe estar entre -180 y 180.")
+
+    # Registrar primero en el grafo: si algo falla, AEROPUERTOS no cambia.
+
+    RED.registrar_aeropuerto(codigo, nombre)
+
+    AEROPUERTOS[codigo] = {
+        "nombre": nombre,
+        "lat": lat,
+        "lng": lon
+    }
+
+    sincronizar_alfabeto(RED.grafo)
+
+    return {
+        "mensaje": f"Aeropuerto {codigo} agregado correctamente.",
+        "aeropuerto": {
+            "codigo": codigo,
+            **AEROPUERTOS[codigo]
+        },
+        "total_aeropuertos": len(RED.grafo),
+        "total_conexiones": sum(
+            len(destinos) for destinos in RED.grafo.values()
+        ),
+        "red": datos_red()
+    }
+
+
+def agregar_vuelo(datos):
+    """Valida y registra o actualiza una conexión de vuelo."""
+
+    for clave in ("origen", "destino"):
+        if clave not in datos:
+            raise ValueError(f"Falta el campo '{clave}'.")
+
+    origen = normalizar_codigo(datos["origen"])
+    destino = normalizar_codigo(datos["destino"])
+
+    if origen == destino:
+        raise ValueError("El origen y el destino deben ser diferentes.")
+
+    for codigo in (origen, destino):
+        if codigo not in RED.grafo:
+            raise ValueError(f"El aeropuerto '{codigo}' no está registrado.")
+
+    for clave in ("distancia", "distancia_km", "peso"):
+        if clave in datos:
+            clave_distancia = clave
+            break
+    else:
+        raise ValueError("Falta el campo 'distancia'.")
+
+    distancia = _numero(
+        datos,
+        clave_distancia,
+        "La distancia"
+    )
+
+    if distancia <= 0:
+        raise ValueError("La distancia debe ser mayor que cero.")
+
+    bidireccional = datos.get("bidireccional", False)
+
+    if not isinstance(bidireccional, bool):
+        raise ValueError(
+            "El campo 'bidireccional' debe ser verdadero o falso."
+        )
+
+    actualizado = RED.registrar_vuelo(
+        origen,
+        destino,
+        distancia,
+        bidireccional=bidireccional,
+        actualizar=True
+    )
+
+    accion = "actualizada" if actualizado else "agregada"
+
+    return {
+        "mensaje": (
+            f"Conexión {origen} -> {destino} {accion} correctamente."
+        ),
+        "actualizado": actualizado,
+        "vuelo": {
+            "origen": origen,
+            "destino": destino,
+            "distancia": distancia,
+            "bidireccional": bidireccional
+        },
+        "total_aeropuertos": len(RED.grafo),
+        "total_conexiones": sum(
+            len(destinos) for destinos in RED.grafo.values()
+        ),
+        "red": datos_red()
     }
 
 # CÁLCULO DE RUTAS
@@ -305,6 +460,49 @@ class AeroRouteHandler(BaseHTTPRequestHandler):
             "application/json; charset=utf-8"
         )
 
+    def leer_json(self):
+
+        tipo = self.headers.get("Content-Type", "")
+
+        if tipo and "application/json" not in tipo.lower():
+            raise ValueError(
+                "El cuerpo debe enviarse como application/json."
+            )
+
+        longitud_texto = self.headers.get("Content-Length")
+
+        if longitud_texto is None:
+            raise ValueError("Falta la longitud del contenido.")
+
+        try:
+            longitud = int(longitud_texto)
+
+        except (TypeError, ValueError):
+            raise ValueError(
+                "La longitud del contenido no es válida."
+            ) from None
+
+        if longitud <= 0:
+            raise ValueError("El cuerpo JSON está vacío.")
+
+        if longitud > 1_000_000:
+            raise ValueError("El cuerpo JSON es demasiado grande.")
+
+        cuerpo = self.rfile.read(longitud)
+
+        try:
+            datos = json.loads(cuerpo.decode("utf-8"))
+
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ValueError(
+                "El cuerpo no contiene un JSON válido."
+            ) from None
+
+        if not isinstance(datos, dict):
+            raise ValueError("El JSON debe ser un objeto.")
+
+        return datos
+
     def do_GET(self):
 
         peticion = urlparse(self.path)
@@ -403,6 +601,48 @@ class AeroRouteHandler(BaseHTTPRequestHandler):
         self.responder_json(404, {
             "error": "Recurso no encontrado."
         })
+
+    def do_POST(self):
+
+        peticion = urlparse(self.path)
+
+        rutas = {
+            "/api/aeropuerto": agregar_aeropuerto,
+            "/api/vuelo": agregar_vuelo
+        }
+
+        if peticion.path not in rutas:
+
+            self.responder_json(404, {
+                "error": "Recurso no encontrado."
+            })
+
+            return
+
+        try:
+
+            datos = self.leer_json()
+
+            resultado = rutas[peticion.path](datos)
+
+            if peticion.path == "/api/aeropuerto":
+                estado = 201
+            else:
+                estado = 200 if resultado.get("actualizado") else 201
+
+            self.responder_json(estado, resultado)
+
+        except (ValueError, TypeError) as error:
+
+            self.responder_json(400, {
+                "error": str(error)
+            })
+
+        except Exception as error:
+
+            self.responder_json(500, {
+                "error": f"Error interno del servidor: {error}"
+            })
 
 # INICIO DEL SISTEMA
 

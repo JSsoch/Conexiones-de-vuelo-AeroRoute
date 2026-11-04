@@ -137,6 +137,173 @@
             Selecciona un origen y un destino.
         </div>
 
+        <div class="separador"></div>
+
+        <details class="panel-edicion">
+
+            <summary>
+                ➕ Gestionar Red (Nodos y Aristas)
+            </summary>
+
+            <div class="editor-grafo">
+
+                <p class="editor-descripcion">
+                    Agrega aeropuertos y conexiones a la red en memoria.
+                    Los cambios se reflejan de inmediato en el mapa.
+                </p>
+
+                <!-- FORMULARIO 1: NUEVO NODO -->
+
+                <form id="form-nodo"
+                      class="form-editor"
+                      autocomplete="off">
+
+                    <h4>Agregar Aeropuerto (Nodo)</h4>
+
+                    <label class="campo-label"
+                           for="nuevo-codigo">
+                        Código IATA
+                    </label>
+
+                    <input
+                        class="campo-texto"
+                        id="nuevo-codigo"
+                        type="text"
+                        maxlength="3"
+                        pattern="[A-Za-z]{2,3}"
+                        placeholder="Ej. CUN"
+                        title="Dos o tres letras, por ejemplo CUN o BR"
+                        required>
+
+                    <label class="campo-label"
+                           for="nuevo-nombre">
+                        Nombre
+                    </label>
+
+                    <input
+                        class="campo-texto"
+                        id="nuevo-nombre"
+                        type="text"
+                        maxlength="120"
+                        placeholder="Ej. Cancún"
+                        required>
+
+                    <div class="editor-dupla">
+
+                        <div>
+                            <label class="campo-label"
+                                   for="nueva-lat">
+                                Latitud
+                            </label>
+
+                            <input
+                                class="campo-texto"
+                                id="nueva-lat"
+                                type="number"
+                                step="any"
+                                min="-90"
+                                max="90"
+                                placeholder="Latitud"
+                                required>
+                        </div>
+
+                        <div>
+                            <label class="campo-label"
+                                   for="nueva-lon">
+                                Longitud
+                            </label>
+
+                            <input
+                                class="campo-texto"
+                                id="nueva-lon"
+                                type="number"
+                                step="any"
+                                min="-180"
+                                max="180"
+                                placeholder="Longitud"
+                                required>
+                        </div>
+
+                    </div>
+
+                    <p class="editor-tip">
+                        Tip: Haz clic en el mapa para autocompletar
+                        latitud y longitud.
+                    </p>
+
+                    <button class="boton-editor"
+                            type="submit">
+                        Agregar Nodo
+                    </button>
+
+                </form>
+
+                <!-- FORMULARIO 2: NUEVA ARISTA -->
+
+                <form id="form-arista"
+                      class="form-editor">
+
+                    <h4>Agregar Conexión (Arista)</h4>
+
+                    <label class="campo-label"
+                           for="arista-origen">
+                        Origen
+                    </label>
+
+                    <div class="campo-select compacto">
+                        <span class="campo-icono">↗</span>
+                        <select id="arista-origen" required></select>
+                    </div>
+
+                    <label class="campo-label"
+                           for="arista-destino">
+                        Destino
+                    </label>
+
+                    <div class="campo-select compacto">
+                        <span class="campo-icono">⌖</span>
+                        <select id="arista-destino" required></select>
+                    </div>
+
+                    <label class="campo-label"
+                           for="arista-distancia">
+                        Distancia en km
+                    </label>
+
+                    <input
+                        class="campo-texto"
+                        id="arista-distancia"
+                        type="number"
+                        step="any"
+                        min="1"
+                        placeholder="Distancia (km)"
+                        required>
+
+                    <label class="editor-check"
+                           for="arista-bidireccional">
+                        <input
+                            id="arista-bidireccional"
+                            type="checkbox">
+                        Bidireccional
+                    </label>
+
+                    <button class="boton-editor"
+                            type="submit">
+                        Agregar Conexión
+                    </button>
+
+                </form>
+
+                <div id="mensaje-editor"
+                     class="mensaje-editor"
+                     role="status">
+                    Los cambios se guardan solo en memoria.
+                </div>
+
+            </div>
+
+        </details>
+
         <div class="lateral-footer">
             <span class="punto-verde"></span>
             Motor de rutas activo

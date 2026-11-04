@@ -4,14 +4,22 @@ from math import isfinite
 from typing import Dict
 
 
-def _normalizar_codigo(codigo: str) -> str:
-    """Normaliza un código y exige tres letras ASCII, como GUA o MEX."""
+def normalizar_codigo(codigo: str) -> str:
+    """Normaliza un código y exige dos o tres letras ASCII, como GUA o BR."""
     if not isinstance(codigo, str):
-        raise ValueError("El código del aeropuerto debe ser un texto de tres letras.")
-    codigo = codigo.strip().upper()
-    if len(codigo) != 3 or not codigo.isascii() or not codigo.isalpha():
-        raise ValueError("El código del aeropuerto debe contener tres letras de A a Z.")
-    return codigo
+        raise ValueError(
+            "El código del aeropuerto debe ser un texto de dos o tres letras."
+        )
+    codigo = codigo.strip()
+    if (
+        len(codigo) not in (2, 3)
+        or not codigo.isascii()
+        or not codigo.isalpha()
+    ):
+        raise ValueError(
+            "El código del aeropuerto debe contener dos o tres letras de A a Z."
+        )
+    return codigo.upper()
 
 
 class GrafoAeropuertos:
@@ -27,7 +35,7 @@ class GrafoAeropuertos:
 
     def registrar_aeropuerto(self, codigo: str, nombre: str) -> None:
         """Agrega un aeropuerto sin conexiones; rechaza códigos repetidos."""
-        codigo = _normalizar_codigo(codigo)
+        codigo = normalizar_codigo(codigo)
         if not isinstance(nombre, str) or not nombre.strip():
             raise ValueError("El nombre del aeropuerto no puede estar vacío.")
         if codigo in self.aeropuertos:
@@ -42,15 +50,20 @@ class GrafoAeropuertos:
         destino: str,
         distancia_km: float,
         bidireccional: bool = False,
-    ) -> None:
-        """Agrega un vuelo entre aeropuertos registrados.
+        actualizar: bool = False,
+    ) -> bool:
+        """Agrega o actualiza un vuelo entre aeropuertos registrados.
 
         La distancia debe ser finita y mayor que cero. No se permiten vuelos
-        al mismo aeropuerto ni conexiones duplicadas. Si se solicita ida y
-        vuelta, ambas conexiones se validan antes de modificar el grafo.
+        al mismo aeropuerto. Si la conexión ya existe, se lanza un ValueError
+        claro salvo que actualizar sea True. Si se solicita ida y vuelta, ambas
+        conexiones se validan antes de modificar el grafo.
+
+        Devuelve True cuando la arista ya existía y su peso fue actualizado;
+        devuelve False cuando la conexión se creó desde cero.
         """
-        origen = _normalizar_codigo(origen)
-        destino = _normalizar_codigo(destino)
+        origen = normalizar_codigo(origen)
+        destino = normalizar_codigo(destino)
         for codigo in (origen, destino):
             if codigo not in self.grafo:
                 raise ValueError(f"El aeropuerto '{codigo}' no está registrado.")
@@ -68,14 +81,24 @@ class GrafoAeropuertos:
         if not isfinite(distancia) or distancia <= 0:
             raise ValueError("La distancia debe ser finita y mayor que cero.")
 
-        if destino in self.grafo[origen]:
-            raise ValueError(f"El vuelo {origen} -> {destino} ya está registrado.")
-        if bidireccional and origen in self.grafo[destino]:
-            raise ValueError(f"El vuelo {destino} -> {origen} ya está registrado.")
+        existe_ida = destino in self.grafo[origen]
+        existe_vuelta = bidireccional and origen in self.grafo[destino]
+
+        if not actualizar:
+            if existe_ida:
+                raise ValueError(
+                    f"El vuelo {origen} -> {destino} ya está registrado."
+                )
+            if existe_vuelta:
+                raise ValueError(
+                    f"El vuelo {destino} -> {origen} ya está registrado."
+                )
 
         self.grafo[origen][destino] = distancia
         if bidireccional:
             self.grafo[destino][origen] = distancia
+
+        return existe_ida or existe_vuelta
 
     def mostrar_aeropuertos(self) -> None:
         """Muestra los códigos y nombres de los aeropuertos registrados."""

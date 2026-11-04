@@ -17,7 +17,7 @@ const COLORES = {
 
 // VARIABLES DEL SISTEMA
 
-const estado = {
+const sistema = {
     red: null,
     mapa: null,
     pines: new Map(),
@@ -41,14 +41,22 @@ const estado = {
 
 // COMUNICACIÓN CON PYTHON
 
-async function pedirJSON(url) {
+async function pedirJSON(url, opciones = {}) {
 
-    const respuesta = await fetch(url);
-    const datos = await respuesta.json();
+    const respuesta = await fetch(url, opciones);
+
+    let datos = {};
+
+    try {
+        datos = await respuesta.json();
+    } catch (error) {
+        datos = {};
+    }
 
     if (!respuesta.ok) {
         throw new Error(
-            datos.error || "Error del servidor."
+            datos.error ||
+            `Error del servidor (${respuesta.status}).`
         );
     }
 
@@ -56,10 +64,30 @@ async function pedirJSON(url) {
 }
 
 
+async function enviarJSON(url, datos) {
+
+    return pedirJSON(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(datos)
+    });
+}
+
+
 function mensaje(texto, tipo = "") {
 
     $("mensaje").textContent = texto;
     $("mensaje").className = "mensaje " + tipo;
+}
+
+
+function mensajeEditor(texto, tipo = "") {
+
+    $("mensaje-editor").textContent = texto;
+    $("mensaje-editor").className =
+        "mensaje-editor " + tipo;
 }
 
 // MAPA REAL CON OPENSTREETMAP
@@ -72,7 +100,7 @@ function inicializarMapa() {
         );
     }
 
-    estado.mapa = L.map("mapa", {
+    sistema.mapa = L.map("mapa", {
 
         zoomControl: false,
 
@@ -85,7 +113,7 @@ function inicializarMapa() {
 
     L.control.zoom({
         position: "bottomright"
-    }).addTo(estado.mapa);
+    }).addTo(sistema.mapa);
 
     // CAPA DE OPENSTREETMAP
     // NO NECESITA API KEY
@@ -113,28 +141,53 @@ function inicializarMapa() {
             "Revisa la conexión a Internet.";
     });
 
-    mapaBase.addTo(estado.mapa);
+    mapaBase.addTo(sistema.mapa);
 
 
     // Capas de conexiones y ruta óptima.
 
-    estado.capaConexiones = L.layerGroup()
-        .addTo(estado.mapa);
+    sistema.capaConexiones = L.layerGroup()
+        .addTo(sistema.mapa);
 
-    estado.capaRuta = L.layerGroup()
-        .addTo(estado.mapa);
+    sistema.capaRuta = L.layerGroup()
+        .addTo(sistema.mapa);
 
 
     // Vista inicial.
 
-    estado.mapa.setView([14, -67], 3);
+    sistema.mapa.setView([14, -67], 3);
+
+
+    // Autocompletar coordenadas del formulario de nodos.
+
+    sistema.mapa.on("click", (e) => {
+
+        $("nueva-lat").value =
+            e.latlng.lat.toFixed(4);
+
+        $("nueva-lon").value =
+            e.latlng.lng.toFixed(4);
+
+        const panel =
+            document.querySelector(".panel-edicion");
+
+        if (panel) {
+            panel.open = true;
+        }
+
+        mensajeEditor(
+            "Coordenadas capturadas. " +
+            "Completa el código y el nombre.",
+            "ok"
+        );
+    });
 }
 
 // INFORMACIÓN DE AEROPUERTOS
 
 function aeropuerto(codigo) {
 
-    const a = estado.red.aeropuertos.find(
+    const a = sistema.red.aeropuertos.find(
         (x) => x.codigo === codigo
     );
 
@@ -157,11 +210,11 @@ function coordenada(codigo) {
 
 // MOSTRAR AEROPUERTOS
 
-function mostrarRed() {
+function pintarRed() {
 
     const limites = [];
 
-    for (const a of estado.red.aeropuertos) {
+    for (const a of sistema.red.aeropuertos) {
 
         const punto = [a.lat, a.lng];
 
@@ -188,7 +241,7 @@ function mostrarRed() {
         const pin = L.marker(
             punto,
             { icon: icono }
-        ).addTo(estado.mapa);
+        ).addTo(sistema.mapa);
 
 
         // Información emergente del aeropuerto.
@@ -211,12 +264,12 @@ function mostrarRed() {
 
         pin.bindPopup(popup);
 
-        estado.pines.set(a.codigo, pin);
+        sistema.pines.set(a.codigo, pin);
     }
 
     // DIBUJAR CONEXIONES
 
-    for (const vuelo of estado.red.conexiones) {
+    for (const vuelo of sistema.red.conexiones) {
 
         L.polyline(
             [
@@ -235,54 +288,196 @@ function mostrarRed() {
                 interactive: false
             }
 
-        ).addTo(estado.capaConexiones);
+        ).addTo(sistema.capaConexiones);
     }
 
 
     // Mostrar todos los aeropuertos.
 
-    estado.mapa.fitBounds(
+    sistema.mapa.fitBounds(
         limites,
         { padding: [35, 35] }
     );
 }
 
-// LLENAR SELECTORES
+// LIMPIAR EL MAPA Y LOS RESULTADOS
 
-function llenarSelectores() {
+function limpiarMapa() {
 
-    for (const id of ["origen", "destino"]) {
+    if (sistema.mapa) {
 
-        const selector = $(id);
+        for (const pin of sistema.pines.values()) {
+            sistema.mapa.removeLayer(pin);
+        }
 
-        selector.replaceChildren();
+        if (sistema.capaConexiones) {
+            sistema.capaConexiones.clearLayers();
+        }
 
-        for (const a of estado.red.aeropuertos) {
-
-            const opcion =
-                document.createElement("option");
-
-            opcion.value = a.codigo;
-
-            opcion.textContent =
-                `${a.codigo} · ${a.nombre}`;
-
-            selector.appendChild(opcion);
+        if (sistema.capaRuta) {
+            sistema.capaRuta.clearLayers();
         }
     }
 
+    sistema.pines.clear();
 
-    // Valores iniciales.
+    sistema.avion = null;
+    sistema.ruta = null;
 
-    $("origen").value = "GUA";
-    $("destino").value = "MAD";
+    sistema.segmento = 0;
+    sistema.progreso = 0;
+    sistema.completado = false;
+}
+
+
+function limpiarResultados() {
+
+    $("distancia-principal").textContent = "—";
+    $("cantidad-escalas").textContent = "—";
+
+    $("sello-validacion").className = "sello gris";
+    $("sello-validacion").textContent = "Sin calcular";
+
+    $("resumen-ruta").textContent =
+        "El recorrido aparecerá aquí.";
+
+    $("tramos").replaceChildren();
+
+    $("prediccion").className = "prediccion-vacia";
+    $("prediccion").textContent =
+        "Calcula una ruta para ver las probabilidades.";
+
+    $("mapa-ruta-texto").textContent =
+        "Selecciona una ruta";
+
+    $("mapa-estado").textContent =
+        "Red actualizada. Busca una nueva ruta.";
+
+    $("tramo-actual").textContent = "Vuelo preparado";
+
+    $("estado-animacion").textContent =
+        "Busca una ruta para comenzar";
+
+    mensaje("Red actualizada. Busca una nueva ruta.", "ok");
+
+    $("calcular").disabled = false;
+    $("pausa").disabled = true;
+    $("reiniciar").disabled = true;
+    $("pausa").textContent = "❚❚ Pausar";
+}
+
+
+// RECARGAR LA RED DESPUÉS DE UNA EDICIÓN
+
+async function actualizarRed(red) {
+
+    // Los endpoints de edición devuelven la red completa.
+    // Si no viene en la respuesta, se consulta de nuevo.
+
+    const datos = red || await pedirJSON("/api/red");
+
+    // Invalidar cualquier búsqueda de ruta que siga en curso.
+
+    sistema.solicitud++;
+
+    detenerAnimacion();
+
+    sistema.red = datos;
+
+    limpiarMapa();
+    limpiarResultados();
+    llenarSelectores();
+
+    // En modo Leaflet se redibuja la red completa.
+
+    if (sistema.mapa && typeof L !== "undefined") {
+        pintarRed();
+    }
+}
+
+// LLENAR SELECTORES
+
+function llenarSelector(selector, anterior, defecto) {
+
+    selector.replaceChildren();
+
+    for (const a of sistema.red.aeropuertos) {
+
+        const opcion =
+            document.createElement("option");
+
+        opcion.value = a.codigo;
+
+        opcion.textContent =
+            `${a.codigo} · ${a.nombre}`;
+
+        selector.appendChild(opcion);
+    }
+
+    const disponibles = Array.from(
+        selector.options,
+        (opcion) => opcion.value
+    );
+
+    if (anterior && disponibles.includes(anterior)) {
+
+        selector.value = anterior;
+
+    } else if (defecto && disponibles.includes(defecto)) {
+
+        selector.value = defecto;
+
+    } else if (disponibles.length) {
+
+        selector.value = disponibles[0];
+    }
+}
+
+
+function llenarSelectores() {
+
+    const anteriores = {
+        origen: $("origen").value,
+        destino: $("destino").value,
+        aristaOrigen: $("arista-origen").value,
+        aristaDestino: $("arista-destino").value
+    };
+
+    llenarSelector($("origen"), anteriores.origen, "GUA");
+    llenarSelector($("destino"), anteriores.destino, "MAD");
+
+    llenarSelector(
+        $("arista-origen"),
+        anteriores.aristaOrigen,
+        "GUA"
+    );
+
+    llenarSelector(
+        $("arista-destino"),
+        anteriores.aristaDestino,
+        "MEX"
+    );
+
+
+    // Evitar que una conexión use el mismo aeropuerto dos veces.
+
+    if ($("arista-origen").value === $("arista-destino").value) {
+
+        const alterno = sistema.red.aeropuertos.find(
+            (a) => a.codigo !== $("arista-origen").value
+        );
+
+        if (alterno) {
+            $("arista-destino").value = alterno.codigo;
+        }
+    }
 
     $("estado").replaceChildren();
 
 
     // Estados de Markov.
 
-    for (const nombre of estado.red.estados) {
+    for (const nombre of sistema.red.estados) {
 
         const opcion =
             document.createElement("option");
@@ -295,17 +490,17 @@ function llenarSelectores() {
 
 
     $("cantidad-aeropuertos").textContent =
-        estado.red.total_aeropuertos;
+        sistema.red.total_aeropuertos;
 
     $("cantidad-conexiones").textContent =
-        estado.red.total_conexiones;
+        sistema.red.total_conexiones;
 }
 
 // MOSTRAR RUTA ÓPTIMA EN EL MAPA
 
 function mostrarRutaEnMapa(resultado) {
 
-    estado.capaRuta.clearLayers();
+    sistema.capaRuta.clearLayers();
 
     const puntos = resultado.ruta.map(coordenada);
 
@@ -321,7 +516,7 @@ function mostrarRutaEnMapa(resultado) {
 
         interactive: false
 
-    }).addTo(estado.capaRuta);
+    }).addTo(sistema.capaRuta);
 
 
     // Línea de la ruta.
@@ -335,12 +530,12 @@ function mostrarRutaEnMapa(resultado) {
 
         interactive: false
 
-    }).addTo(estado.capaRuta);
+    }).addTo(sistema.capaRuta);
 
 
     // Resaltar aeropuertos del recorrido.
 
-    for (const [codigo, pin] of estado.pines) {
+    for (const [codigo, pin] of sistema.pines) {
 
         const circulo = pin.getElement()
             ?.querySelector(".pin-punto");
@@ -357,7 +552,7 @@ function mostrarRutaEnMapa(resultado) {
 
     // Centrar el mapa en la ruta.
 
-    estado.mapa.fitBounds(puntos, {
+    sistema.mapa.fitBounds(puntos, {
 
         paddingTopLeft: [90, 90],
 
@@ -418,7 +613,7 @@ function mostrarRutaEnMapa(resultado) {
     });
 
 
-    estado.avion = L.marker(
+    sistema.avion = L.marker(
 
         puntos[0],
 
@@ -430,7 +625,7 @@ function mostrarRutaEnMapa(resultado) {
             interactive: false
         }
 
-    ).addTo(estado.capaRuta);
+    ).addTo(sistema.capaRuta);
 }
 
 // RESULTADOS DE DIJKSTRA Y MARKOV
@@ -555,7 +750,7 @@ function mostrarResultados(r) {
     barras.className = "prob-bloque";
 
 
-    for (const nombre of estado.red.estados) {
+    for (const nombre of sistema.red.estados) {
 
         const porcentaje =
             100 *
@@ -622,16 +817,16 @@ function mostrarResultados(r) {
 
 function detenerAnimacion() {
 
-    if (estado.frame !== null) {
+    if (sistema.frame !== null) {
 
-        cancelAnimationFrame(estado.frame);
+        cancelAnimationFrame(sistema.frame);
     }
 
-    estado.frame = null;
+    sistema.frame = null;
 
-    estado.activo = false;
+    sistema.activo = false;
 
-    estado.tiempoAnterior = null;
+    sistema.tiempoAnterior = null;
 }
 
 // DURACIÓN DEL TRAMO
@@ -639,7 +834,7 @@ function detenerAnimacion() {
 function duracionTramo() {
 
     const km =
-        estado.ruta.tramos[estado.segmento].distancia;
+        sistema.ruta.tramos[sistema.segmento].distancia;
 
     return Math.max(
         1850,
@@ -651,24 +846,24 @@ function duracionTramo() {
 
 function colocarAvion() {
 
-    if (!estado.ruta || !estado.avion) {
+    if (!sistema.ruta || !sistema.avion) {
         return;
     }
 
     const origen = coordenada(
-        estado.ruta.ruta[estado.segmento]
+        sistema.ruta.ruta[sistema.segmento]
     );
 
     const destino = coordenada(
-        estado.ruta.ruta[estado.segmento + 1]
+        sistema.ruta.ruta[sistema.segmento + 1]
     );
 
-    const t = estado.progreso;
+    const t = sistema.progreso;
 
 
     // Movimiento del avión entre dos puntos.
 
-    estado.avion.setLatLng([
+    sistema.avion.setLatLng([
 
         origen[0] +
         (destino[0] - origen[0]) * t,
@@ -681,9 +876,9 @@ function colocarAvion() {
 
     // Orientación del avioncito.
 
-    const p1 = estado.mapa.latLngToLayerPoint(origen);
+    const p1 = sistema.mapa.latLngToLayerPoint(origen);
 
-    const p2 = estado.mapa.latLngToLayerPoint(destino);
+    const p2 = sistema.mapa.latLngToLayerPoint(destino);
 
     const angulo = Math.atan2(
 
@@ -694,7 +889,7 @@ function colocarAvion() {
     ) * 180 / Math.PI;
 
 
-    const svg = estado.avion.getElement()
+    const svg = sistema.avion.getElement()
         ?.querySelector(".avion-svg");
 
     if (svg) {
@@ -707,13 +902,13 @@ function colocarAvion() {
     // Información del tramo actual.
 
     $("tramo-actual").textContent =
-        `${estado.ruta.ruta[estado.segmento]}` +
+        `${sistema.ruta.ruta[sistema.segmento]}` +
         ` → ` +
-        `${estado.ruta.ruta[estado.segmento + 1]}`;
+        `${sistema.ruta.ruta[sistema.segmento + 1]}`;
 
     $("estado-animacion").textContent =
-        `Tramo ${estado.segmento + 1} de ` +
-        `${estado.ruta.tramos.length} · ` +
+        `Tramo ${sistema.segmento + 1} de ` +
+        `${sistema.ruta.tramos.length} · ` +
         `${Math.round(t * 100)}% recorrido`;
 }
 
@@ -721,26 +916,26 @@ function colocarAvion() {
 
 function animar(timestamp) {
 
-    if (!estado.activo || !estado.ruta) {
+    if (!sistema.activo || !sistema.ruta) {
         return;
     }
 
-    if (estado.tiempoAnterior === null) {
+    if (sistema.tiempoAnterior === null) {
 
-        estado.tiempoAnterior = timestamp;
+        sistema.tiempoAnterior = timestamp;
     }
 
     const delta = Math.min(
         70,
-        timestamp - estado.tiempoAnterior
+        timestamp - sistema.tiempoAnterior
     );
 
-    estado.tiempoAnterior = timestamp;
+    sistema.tiempoAnterior = timestamp;
 
 
     // Avanzar en el recorrido.
 
-    estado.progreso +=
+    sistema.progreso +=
 
         delta *
         Number($("velocidad").value) /
@@ -749,37 +944,37 @@ function animar(timestamp) {
 
     // Verificar llegada al siguiente aeropuerto.
 
-    if (estado.progreso >= 1) {
+    if (sistema.progreso >= 1) {
 
-        estado.segmento++;
+        sistema.segmento++;
 
-        estado.progreso = 0;
+        sistema.progreso = 0;
 
 
         // Llegada al destino final.
 
         if (
-            estado.segmento >=
-            estado.ruta.tramos.length
+            sistema.segmento >=
+            sistema.ruta.tramos.length
         ) {
 
-            estado.segmento =
-                estado.ruta.tramos.length - 1;
+            sistema.segmento =
+                sistema.ruta.tramos.length - 1;
 
-            estado.progreso = 1;
+            sistema.progreso = 1;
 
             colocarAvion();
 
             detenerAnimacion();
 
-            estado.completado = true;
+            sistema.completado = true;
 
             $("pausa").disabled = true;
 
             $("pausa").textContent = "✓ Llegó";
 
             $("estado-animacion").textContent =
-                `Llegada a ${estado.ruta.destino}`;
+                `Llegada a ${sistema.ruta.destino}`;
 
             mensaje(
                 "El avión llegó a su destino.",
@@ -793,7 +988,7 @@ function animar(timestamp) {
 
     colocarAvion();
 
-    estado.frame =
+    sistema.frame =
         requestAnimationFrame(animar);
 }
 
@@ -801,17 +996,17 @@ function animar(timestamp) {
 
 function iniciarVuelo() {
 
-    if (!estado.ruta) {
+    if (!sistema.ruta) {
         return;
     }
 
     detenerAnimacion();
 
-    estado.segmento = 0;
-    estado.progreso = 0;
+    sistema.segmento = 0;
+    sistema.progreso = 0;
 
-    estado.completado = false;
-    estado.activo = true;
+    sistema.completado = false;
+    sistema.activo = true;
 
 
     $("pausa").disabled = false;
@@ -823,7 +1018,7 @@ function iniciarVuelo() {
 
     colocarAvion();
 
-    estado.frame =
+    sistema.frame =
         requestAnimationFrame(animar);
 }
 
@@ -831,7 +1026,7 @@ function iniciarVuelo() {
 
 function pausarOContinuar() {
 
-    if (estado.activo) {
+    if (sistema.activo) {
 
         detenerAnimacion();
 
@@ -842,18 +1037,18 @@ function pausarOContinuar() {
             "Vuelo en pausa";
 
     } else if (
-        estado.ruta &&
-        !estado.completado
+        sistema.ruta &&
+        !sistema.completado
     ) {
 
-        estado.activo = true;
+        sistema.activo = true;
 
-        estado.tiempoAnterior = null;
+        sistema.tiempoAnterior = null;
 
         $("pausa").textContent =
             "❚❚ Pausar";
 
-        estado.frame =
+        sistema.frame =
             requestAnimationFrame(animar);
     }
 }
@@ -862,7 +1057,7 @@ function pausarOContinuar() {
 
 async function buscarRuta() {
 
-    const solicitud = ++estado.solicitud;
+    const solicitud = ++sistema.solicitud;
 
     detenerAnimacion();
 
@@ -889,11 +1084,11 @@ async function buscarRuta() {
             `/api/ruta?${parametros}`
         );
 
-        if (solicitud !== estado.solicitud) {
+        if (solicitud !== sistema.solicitud) {
             return;
         }
 
-        estado.ruta = resultado;
+        sistema.ruta = resultado;
 
         mostrarResultados(resultado);
 
@@ -908,14 +1103,14 @@ async function buscarRuta() {
 
     } catch (error) {
 
-        if (solicitud !== estado.solicitud) {
+        if (solicitud !== sistema.solicitud) {
             return;
         }
 
-        estado.ruta = null;
-        estado.avion = null;
+        sistema.ruta = null;
+        sistema.avion = null;
 
-        estado.capaRuta.clearLayers();
+        sistema.capaRuta.clearLayers();
 
         $("pausa").disabled = true;
         $("reiniciar").disabled = true;
@@ -953,7 +1148,7 @@ async function buscarRuta() {
 
     } finally {
 
-        if (solicitud === estado.solicitud) {
+        if (solicitud === sistema.solicitud) {
 
             $("calcular").disabled = false;
         }
@@ -1000,20 +1195,20 @@ async function iniciar() {
         "change",
         (e) => {
 
-            if (!estado.mapa) {
+            if (!sistema.mapa) {
                 return;
             }
 
             if (e.target.checked) {
 
-                estado.capaConexiones.addTo(
-                    estado.mapa
+                sistema.capaConexiones.addTo(
+                    sistema.mapa
                 );
 
             } else {
 
-                estado.mapa.removeLayer(
-                    estado.capaConexiones
+                sistema.mapa.removeLayer(
+                    sistema.capaConexiones
                 );
             }
         }
@@ -1033,17 +1228,144 @@ async function iniciar() {
     );
 
 
+    // Editor del grafo: nuevo aeropuerto.
+
+    $("form-nodo").addEventListener(
+        "submit",
+        async (e) => {
+
+            e.preventDefault();
+
+            const formulario = e.currentTarget;
+
+            const boton = formulario.querySelector(
+                'button[type="submit"]'
+            );
+
+            boton.disabled = true;
+
+            mensajeEditor("Registrando aeropuerto...");
+
+            const codigo =
+                $("nuevo-codigo").value.trim().toUpperCase();
+
+            try {
+
+                const respuesta = await enviarJSON(
+                    "/api/aeropuerto",
+                    {
+                        codigo,
+
+                        nombre:
+                            $("nuevo-nombre").value.trim(),
+
+                        lat: Number($("nueva-lat").value),
+
+                        lon: Number($("nueva-lon").value)
+                    }
+                );
+
+                await actualizarRed(respuesta.red);
+
+                // Dejar el nodo listo para su primera conexión.
+
+                $("arista-origen").value = codigo;
+
+                formulario.reset();
+
+                mensajeEditor(
+                    respuesta.mensaje ||
+                    `Aeropuerto ${codigo} agregado.`,
+                    "ok"
+                );
+
+            } catch (error) {
+
+                mensajeEditor(error.message, "error");
+
+            } finally {
+
+                boton.disabled = false;
+            }
+        }
+    );
+
+
+    // Editor del grafo: nueva conexión.
+
+    $("form-arista").addEventListener(
+        "submit",
+        async (e) => {
+
+            e.preventDefault();
+
+            const boton = e.currentTarget.querySelector(
+                'button[type="submit"]'
+            );
+
+            boton.disabled = true;
+
+            mensajeEditor("Registrando conexión...");
+
+            const datos = {
+                origen: $("arista-origen").value,
+
+                destino: $("arista-destino").value,
+
+                distancia:
+                    Number($("arista-distancia").value),
+
+                bidireccional:
+                    $("arista-bidireccional").checked
+            };
+
+            try {
+
+                const respuesta = await enviarJSON(
+                    "/api/vuelo",
+                    datos
+                );
+
+                await actualizarRed(respuesta.red);
+
+                // Preparar el planificador con la conexión creada.
+
+                $("origen").value = datos.origen;
+                $("destino").value = datos.destino;
+
+                $("arista-distancia").value = "";
+                $("arista-bidireccional").checked = false;
+
+                mensajeEditor(
+                    respuesta.mensaje ||
+                    `Conexión ${datos.origen} -> ` +
+                    `${datos.destino} registrada.`,
+                    "ok"
+                );
+
+            } catch (error) {
+
+                mensajeEditor(error.message, "error");
+
+            } finally {
+
+                boton.disabled = false;
+            }
+        }
+    );
+
+
     // Cargar mapa y datos.
 
     try {
 
         inicializarMapa();
 
-        estado.red = await pedirJSON("/api/red");
+        sistema.red = await pedirJSON("/api/red");
 
         llenarSelectores();
 
-        mostrarRed();
+        pintarRed();
 
         await buscarRuta();
 
