@@ -814,6 +814,110 @@ function mostrarResultados(r) {
     caja.append(barras, conclusion);
 }
 
+// MOSTRAR AVISO DE RUTA IMPOSIBLE CON MOTIVO DETALLADO
+
+function mostrarRutaImposible(origen, destino, error) {
+
+    sistema.ruta = null;
+    sistema.avion = null;
+
+    sistema.capaRuta.clearLayers();
+
+    $("pausa").disabled = true;
+    $("reiniciar").disabled = true;
+
+    $("distancia-principal").textContent = "—";
+    $("cantidad-escalas").textContent = "—";
+
+    $("mapa-ruta-texto").textContent =
+        `Ruta no factible: ${origen} → ${destino}`;
+
+    $("mapa-estado").textContent =
+        error.message;
+
+    $("sello-validacion").className =
+        "sello rojo";
+
+    $("sello-validacion").textContent =
+        "✗ RUTA IMPOSIBLE";
+
+    const pOrigen = sistema.pines.get(origen);
+    const pDestino = sistema.pines.get(destino);
+    if (pOrigen && pDestino && sistema.mapa) {
+        const grupo = L.featureGroup([pOrigen, pDestino]);
+        sistema.mapa.fitBounds(grupo.getBounds(), {
+            padding: [90, 90],
+            maxZoom: 5
+        });
+    }
+
+    for (const [codigo, pin] of sistema.pines) {
+        const circulo = pin.getElement()?.querySelector(".pin-punto");
+        if (circulo) {
+            circulo.classList.remove("ruta");
+        }
+    }
+
+    const resumen = $("resumen-ruta");
+    resumen.replaceChildren();
+
+    const aviso = document.createElement("div");
+    aviso.className = "alerta-ruta-imposible";
+    aviso.innerHTML = `
+        <div class="alerta-cabecera">
+            <div class="alerta-icono">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h4 class="alerta-titulo">Itinerario No Factible (${origen} ➔ ${destino})</h4>
+                <span class="alerta-subetiqueta mono">DIJKSTRA: COSTO INFINITO (d = ∞) • CADENA w ∉ L(M)</span>
+            </div>
+        </div>
+        <div class="alerta-cuerpo">
+            <p class="alerta-motivo">
+                <strong>Motivo del fallo:</strong> ${error.message}
+            </p>
+            <div class="alerta-teoria mono">
+                <span>Diagnóstico de Red:</span> No existe una secuencia de aristas dirigidas en el grafo G=(V,E) que permita conectar el vértice de salida con el de llegada respetando la orientación de los vuelos.
+            </div>
+            <div class="alerta-sugerencia">
+                <i class="fa-regular fa-lightbulb"></i>
+                <span>¿Cómo resolverlo? Puedes agregar una conexión (arista) en el "Gestor de Red G=(V,E)" en la columna izquierda o seleccionar otro aeropuerto como escala intermedia.</span>
+            </div>
+        </div>
+    `;
+    resumen.appendChild(aviso);
+
+    $("tramos").replaceChildren();
+    const tramoVacio = document.createElement("div");
+    tramoVacio.className = "tramo-item tramo-aviso-error";
+    tramoVacio.innerHTML = `
+        <span class="tramo-num">!</span>
+        <b>Sin tramos asignables (${origen} ⇸ ${destino})</b>
+        <small>0 tramos · 0 km</small>
+    `;
+    $("tramos").appendChild(tramoVacio);
+
+    const caja = $("prediccion");
+    caja.className = "prediccion-vacia";
+    caja.replaceChildren();
+    const markovVacio = document.createElement("div");
+    markovVacio.className = "prediccion-aviso-inconexa";
+    markovVacio.innerHTML = `
+        <i class="fa-solid fa-circle-exclamation texto-dorado"></i>
+        <span>Simulación estocástica en pausa: Se requiere una trayectoria conexa entre <b>${origen}</b> y <b>${destino}</b> para proyectar la matriz de probabilidades P<sup>k</sup>.</span>
+    `;
+    caja.appendChild(markovVacio);
+
+    $("tramo-actual").textContent =
+        "Vuelo no factible";
+
+    $("estado-animacion").textContent =
+        "Sin ruta disponible en el grafo dirigido";
+
+    mensaje(`Ruta no factible: ${error.message}`, "error");
+}
+
 // DETENER ANIMACIÓN
 
 function detenerAnimacion() {
@@ -1119,44 +1223,11 @@ async function buscarRuta() {
             return;
         }
 
-        sistema.ruta = null;
-        sistema.avion = null;
-
-        sistema.capaRuta.clearLayers();
-
-        $("pausa").disabled = true;
-        $("reiniciar").disabled = true;
-
-        $("distancia-principal").textContent = "—";
-        $("cantidad-escalas").textContent = "—";
-
-        $("mapa-ruta-texto").textContent =
-            "Ruta no disponible";
-
-        $("mapa-estado").textContent =
-            error.message;
-
-        $("sello-validacion").className =
-            "sello gris";
-
-        $("sello-validacion").textContent =
-            "Sin ruta";
-
-        $("resumen-ruta").textContent =
-            "No existe una ruta para esos aeropuertos.";
-
-        $("tramos").replaceChildren();
-
-        $("prediccion").textContent =
-            "No hay predicción para esta ruta.";
-
-        $("tramo-actual").textContent =
-            "Vuelo no disponible";
-
-        $("estado-animacion").textContent =
-            error.message;
-
-        mensaje(error.message, "error");
+        mostrarRutaImposible(
+            $("origen").value,
+            $("destino").value,
+            error
+        );
 
     } finally {
 

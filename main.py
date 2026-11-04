@@ -347,7 +347,18 @@ def consultar_ruta(
 
     if distancia is None or not recorrido:
         raise ValueError(
-            f"No existe una ruta de {origen} hacia {destino}."
+            (
+            f"No existe una ruta de {origen} hacia {destino}. "
+            + (
+                f"El aeropuerto de origen {origen} no posee vuelos salientes registrados."
+                if not RED.grafo.get(origen, {})
+                else (
+                    f"El aeropuerto de destino {destino} no tiene vuelos entrantes registrados."
+                    if not [u for u, destinos in RED.grafo.items() if destino in destinos]
+                    else f"No existe ningún camino dirigido en el grafo G=(V,E) entre {origen} y {destino} (componentes inconexas o aristas unidireccionales sin retorno)."
+                )
+            )
+        )
         )
 
     # AUTÓMATA - VALIDACIÓN DE RUTA
@@ -361,7 +372,7 @@ def consultar_ruta(
 
     if not es_valida:
         raise ValueError(
-            f"El autómata rechazó la ruta: {mensaje}"
+            f"El autómata determinista rechazó la cadena de vuelo: {mensaje} (cadena w ∉ L(M))."
         )
 
     peso_validado = calcular_peso_ruta(

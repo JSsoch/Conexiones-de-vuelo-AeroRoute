@@ -588,9 +588,17 @@ a {
 }
 
 .mensaje.error {
-    background: rgba(186, 26, 26, 0.12);
-    border-color: rgba(186, 26, 26, 0.35);
+    background: rgba(186, 26, 26, 0.14);
+    border-color: rgba(186, 26, 26, 0.45);
     color: #93000A;
+    font-weight: 700;
+    animation: alerta-shake 0.4s ease;
+}
+
+@keyframes alerta-shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
 }
 
 
@@ -1358,6 +1366,141 @@ a {
     background: rgba(108, 163, 162, 0.2);
     color: var(--brand-teal);
     border: 1px solid rgba(108, 163, 162, 0.45);
+}
+
+.sello.rojo {
+    background: rgba(186, 26, 26, 0.14);
+    color: #93000A;
+    border: 1px solid rgba(186, 26, 26, 0.45);
+    font-weight: 800;
+}
+
+/* Aviso Visual de Ruta Imposible */
+.alerta-ruta-imposible {
+    background-color: #FFF9F7;
+    border: 1.5px solid rgba(186, 26, 26, 0.32);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    box-shadow: 0 4px 14px rgba(186, 26, 26, 0.08);
+    animation: alerta-aparecer 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes alerta-aparecer {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.alerta-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.alerta-icono {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: rgba(186, 26, 26, 0.12);
+    color: #BA1A1A;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.alerta-titulo {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: #93000A;
+}
+
+.alerta-subetiqueta {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #BA1A1A;
+    display: block;
+    margin-top: 2px;
+}
+
+.alerta-cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alerta-motivo {
+    font-size: 13px;
+    color: var(--text-navy);
+    line-height: 1.5;
+}
+
+.alerta-motivo strong {
+    color: #93000A;
+}
+
+.alerta-teoria {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: rgba(18, 33, 46, 0.04);
+    border-left: 3px solid #BA1A1A;
+    padding: 7px 10px;
+    border-radius: 0 4px 4px 0;
+    line-height: 1.45;
+}
+
+.alerta-teoria span {
+    font-weight: 700;
+    color: var(--text-navy);
+}
+
+.alerta-sugerencia {
+    font-size: 12px;
+    color: var(--brand-teal-dark);
+    font-weight: 600;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: rgba(48, 112, 130, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    line-height: 1.4;
+}
+
+.alerta-sugerencia i {
+    color: var(--brand-ochre);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.tramo-item.tramo-aviso-error {
+    background-color: #FFF9F7;
+    border-color: rgba(186, 26, 26, 0.25);
+    color: var(--text-muted);
+}
+
+.tramo-item.tramo-aviso-error .tramo-num {
+    background-color: rgba(186, 26, 26, 0.12);
+    color: #BA1A1A;
+    border-color: rgba(186, 26, 26, 0.3);
+}
+
+.prediccion-aviso-inconexa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-body);
+    font-size: 12px;
+    text-align: left;
+    line-height: 1.45;
+}
+
+.prediccion-aviso-inconexa i {
+    font-size: 16px;
+    flex-shrink: 0;
 }
 
 /* Chips de Ruta Óptima */
