@@ -123,6 +123,7 @@ function inicializarMapa() {
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
 
         {
+
             minZoom: 2,
             maxZoom: 19,
 
@@ -278,7 +279,7 @@ function pintarRed() {
             ],
 
             {
-                color: "#376b84",
+                color: "#6CA3A2",
 
                 weight: 1.4,
                 opacity: 0.65,
@@ -523,7 +524,7 @@ function mostrarRutaEnMapa(resultado) {
 
     L.polyline(puntos, {
 
-        color: "#5cf2d4",
+        color: "#EA9940",
 
         weight: 3.6,
         opacity: 0.95,
@@ -1080,9 +1081,15 @@ async function buscarRuta() {
 
     try {
 
+        const tInicio = performance.now();
         const resultado = await pedirJSON(
             `/api/ruta?${parametros}`
         );
+
+        const relTiempo = $("tiempo-computo");
+        if (relTiempo) {
+            relTiempo.textContent = `${(performance.now() - tInicio).toFixed(1)} ms`;
+        }
 
         if (solicitud !== sistema.solicitud) {
             return;
@@ -1102,6 +1109,11 @@ async function buscarRuta() {
         );
 
     } catch (error) {
+
+        const relTiempo = $("tiempo-computo");
+        if (relTiempo) {
+            relTiempo.textContent = `${(performance.now() - tInicio).toFixed(1)} ms`;
+        }
 
         if (solicitud !== sistema.solicitud) {
             return;

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 
@@ -6,609 +5,628 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>AeroRoute | Sistema de vuelos</title>
+    <title>AeroRoute | Sistema Inteligente de Rutas Aéreas & Modelado Formal</title>
 
-    <link rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <!-- Google Fonts: Noto Serif & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <!-- Estilos AeroRoute Atelier -->
     <link rel="stylesheet" href="/web/estilos.css">
 
-    <script
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        defer>
-    </script>
-
+    <!-- Leaflet JS y App JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
     <script src="/web/app.js" defer></script>
 </head>
 
-<body>
+<body class="aeroroute-atelier">
 
-<div class="layout">
-
-    <!-- PANEL LATERAL -->
-
-    <aside class="panel-lateral">
-
-        <div class="marca">
-            <span class="marca-icono">✈</span>
-
-            <div>
-                <strong>Aero<span>Route</span></strong>
-                <small>FLIGHT ROUTING SYSTEM</small>
-            </div>
-        </div>
-
-        <div class="separador"></div>
-
-        <div class="etiqueta-seccion">
-            PLANIFICADOR DE VUELOS
-        </div>
-
-        <h1>
-            Tu próxima ruta
-            <em>comienza aquí.</em>
-        </h1>
-
-        <p class="descripcion">
-            Explora las conexiones aéreas y descubre
-            la ruta más corta mediante Dijkstra.
-        </p>
-
-        <!-- FORMULARIO -->
-
-        <form id="form-vuelos" class="form-vuelos">
-
-            <label class="campo-label" for="origen">
-                Aeropuerto de salida
-            </label>
-
-            <div class="campo-select">
-                <span class="campo-icono">↗</span>
-
-                <select id="origen" required></select>
+    <!-- ======================================================== -->
+    <!-- ENCABEZADO SUPERIOR: BOUTIQUE FLIGHT DISPATCH            -->
+    <!-- ======================================================== -->
+    <header class="barra-navegacion">
+        <div class="contenedor-ancho barra-interior">
+            
+            <!-- Logotipo y Marca -->
+            <div class="marca-bloque">
+                <div class="marca-emblema">
+                    <i class="fa-solid fa-plane-up"></i>
+                </div>
+                <div>
+                    <div class="marca-nombre-fila">
+                        <span class="marca-nombre">AeroRoute</span>
+                        <span class="marca-badge">Atelier v2.4</span>
+                    </div>
+                    <p class="marca-subtitulo">Boutique Flight Dispatch • Modelado Formal & Rutas Exclusivas</p>
+                </div>
             </div>
 
-            <div class="intercambio">
-                <button
-                    type="button"
-                    id="intercambiar"
-                    title="Intercambiar aeropuertos">
-                    ⇅
+            <!-- Navegación y Enlaces -->
+            <nav class="navegacion-links" aria-label="Navegación principal">
+                <a href="#planificador" class="nav-item activo">
+                    <i class="fa-solid fa-route"></i>
+                    <span>Explorador de Rutas</span>
+                </a>
+                <a href="#analisis-formal" class="nav-item">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Simulador Markov</span>
+                </a>
+                <a href="#panel-grafos" class="nav-item">
+                    <i class="fa-solid fa-circle-nodes"></i>
+                    <span>Editor de Red (Grafos)</span>
+                </a>
+            </nav>
+
+            <!-- Estado Operativo & Guía -->
+            <div class="barra-acciones">
+                <div class="badge-despacho">
+                    <span class="pulso-activo"></span>
+                    <span class="badge-texto-muted">DESPACHO ACTIVO</span>
+                    <span class="badge-texto-destacado">• Dijkstra Óptimo</span>
+                </div>
+                <button type="button" class="btn-guia" title="Guía Teórica de Lenguajes Formales & Algoritmos" onclick="document.getElementById('analisis-formal').scrollIntoView({behavior: 'smooth'})">
+                    <i class="fa-solid fa-circle-question"></i>
                 </button>
             </div>
 
-            <label class="campo-label" for="destino">
-                Aeropuerto de llegada
-            </label>
-
-            <div class="campo-select">
-                <span class="campo-icono">⌖</span>
-
-                <select id="destino" required></select>
-            </div>
-
-            <div class="separador menor"></div>
-
-            <div class="etiqueta-seccion">
-                PREDICCIÓN DEL VUELO
-            </div>
-
-            <label class="campo-label" for="estado">
-                Estado inicial (Markov)
-            </label>
-
-            <div class="campo-select">
-                <span class="campo-icono">◷</span>
-                <select id="estado"></select>
-            </div>
-
-            <label class="campo-label con-espacio"
-                   for="periodos">
-                Períodos de predicción
-            </label>
-
-            <div class="campo-select">
-                <span class="campo-icono">▤</span>
-
-                <select id="periodos">
-                    <option value="1">1 período</option>
-                    <option value="2">2 períodos</option>
-                    <option value="3" selected>3 períodos</option>
-                    <option value="4">4 períodos</option>
-                    <option value="5">5 períodos</option>
-                    <option value="6">6 períodos</option>
-                </select>
-            </div>
-
-            <button
-                class="boton-principal"
-                id="calcular"
-                type="submit">
-
-                <span>Buscar mejor ruta</span>
-                <span>➜</span>
-            </button>
-
-        </form>
-
-        <div id="mensaje"
-             class="mensaje"
-             role="status">
-            Selecciona un origen y un destino.
         </div>
+    </header>
 
-        <div class="separador"></div>
 
-        <details class="panel-edicion">
+    <!-- ======================================================== -->
+    <!-- HERO BAR: PLANIFICADOR DE RUTAS ESTILO BOOKING/CONCIERGE -->
+    <!-- ======================================================== -->
+    <section class="seccion-hero" id="planificador">
+        <div class="contenedor-ancho">
 
-            <summary>
-                ➕ Gestionar Red (Nodos y Aristas)
-            </summary>
+            <div class="hero-cabecera">
+                <div>
+                    <div class="hero-eyebrow">
+                        <span>CONCIERGE DISPATCH • INGENIERÍA DE ITINERARIOS</span>
+                        <span class="hero-chip-tag">GLOBAL FLIGHTS</span>
+                    </div>
+                    <h1 class="hero-titulo">Planificador de Rutas & Predicción Estocástica</h1>
+                </div>
 
-            <div class="editor-grafo">
+                <div class="hero-telemetria-badge">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="reloj-utc" class="mono">UTC 18:42:09</span>
+                    <span class="separador-punto">|</span>
+                    <span class="mono texto-acento">Dijkstra Euclidean (EPSG:4326)</span>
+                </div>
+            </div>
 
-                <p class="editor-descripcion">
-                    Agrega aeropuertos y conexiones a la red en memoria.
-                    Los cambios se reflejan de inmediato en el mapa.
-                </p>
+            <!-- Tarjeta del Formulario Principal -->
+            <div class="hero-tarjeta-busqueda">
+                <form id="form-vuelos" class="cuadricula-busqueda">
 
-                <!-- FORMULARIO 1: NUEVO NODO -->
-
-                <form id="form-nodo"
-                      class="form-editor"
-                      autocomplete="off">
-
-                    <h4>Agregar Aeropuerto (Nodo)</h4>
-
-                    <label class="campo-label"
-                           for="nuevo-codigo">
-                        Código IATA
-                    </label>
-
-                    <input
-                        class="campo-texto"
-                        id="nuevo-codigo"
-                        type="text"
-                        maxlength="3"
-                        pattern="[A-Za-z]{2,3}"
-                        placeholder="Ej. CUN"
-                        title="Dos o tres letras, por ejemplo CUN o BR"
-                        required>
-
-                    <label class="campo-label"
-                           for="nuevo-nombre">
-                        Nombre
-                    </label>
-
-                    <input
-                        class="campo-texto"
-                        id="nuevo-nombre"
-                        type="text"
-                        maxlength="120"
-                        placeholder="Ej. Cancún"
-                        required>
-
-                    <div class="editor-dupla">
-
-                        <div>
-                            <label class="campo-label"
-                                   for="nueva-lat">
-                                Latitud
-                            </label>
-
-                            <input
-                                class="campo-texto"
-                                id="nueva-lat"
-                                type="number"
-                                step="any"
-                                min="-90"
-                                max="90"
-                                placeholder="Latitud"
-                                required>
+                    <!-- Origen -->
+                    <div class="campo-grupo">
+                        <label class="campo-etiqueta" for="origen">
+                            <i class="fa-solid fa-plane-departure"></i> Aeropuerto Origen
+                        </label>
+                        <div class="selector-envoltorio">
+                            <select id="origen" class="control-select" required>
+                                <option value="" disabled selected>Cargando aeropuertos...</option>
+                            </select>
                         </div>
-
-                        <div>
-                            <label class="campo-label"
-                                   for="nueva-lon">
-                                Longitud
-                            </label>
-
-                            <input
-                                class="campo-texto"
-                                id="nueva-lon"
-                                type="number"
-                                step="any"
-                                min="-180"
-                                max="180"
-                                placeholder="Longitud"
-                                required>
-                        </div>
-
                     </div>
 
-                    <p class="editor-tip">
-                        Tip: Haz clic en el mapa para autocompletar
-                        latitud y longitud.
-                    </p>
+                    <!-- Botón Intercambiar -->
+                    <div class="campo-intercambio">
+                        <button type="button" id="intercambiar" class="btn-intercambiar" title="Invertir origen y destino">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                        </button>
+                    </div>
 
-                    <button class="boton-editor"
-                            type="submit">
-                        Agregar Nodo
-                    </button>
+                    <!-- Destino -->
+                    <div class="campo-grupo">
+                        <label class="campo-etiqueta" for="destino">
+                            <i class="fa-solid fa-plane-arrival"></i> Aeropuerto Destino
+                        </label>
+                        <div class="selector-envoltorio">
+                            <select id="destino" class="control-select" required>
+                                <option value="" disabled selected>Cargando aeropuertos...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Estado Inicial Markov (S₀) -->
+                    <div class="campo-grupo campo-mitad">
+                        <label class="campo-etiqueta" for="estado">
+                            <i class="fa-solid fa-hourglass-start"></i> Estado Inicial S₀
+                        </label>
+                        <div class="selector-envoltorio">
+                            <select id="estado" class="control-select">
+                                <option value="A tiempo" selected>A tiempo (S₀)</option>
+                                <option value="Retrasado">Retrasado (S₁)</option>
+                                <option value="Cancelado">Cancelado (S₂)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Horizontes de Predicción (k) -->
+                    <div class="campo-grupo campo-mitad">
+                        <label class="campo-etiqueta" for="periodos">
+                            <i class="fa-solid fa-chart-line"></i> Horizontes (k)
+                        </label>
+                        <div class="selector-envoltorio">
+                            <select id="periodos" class="control-select">
+                                <option value="1">1 etapa</option>
+                                <option value="2">2 etapas</option>
+                                <option value="3" selected>3 etapas (k=3)</option>
+                                <option value="4">4 etapas</option>
+                                <option value="5">5 etapas</option>
+                                <option value="6">6 etapas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Envío -->
+                    <div class="campo-accion">
+                        <button class="btn-primario-busqueda" id="calcular" type="submit">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Calcular Ruta</span>
+                        </button>
+                    </div>
 
                 </form>
 
-                <!-- FORMULARIO 2: NUEVA ARISTA -->
-
-                <form id="form-arista"
-                      class="form-editor">
-
-                    <h4>Agregar Conexión (Arista)</h4>
-
-                    <label class="campo-label"
-                           for="arista-origen">
-                        Origen
-                    </label>
-
-                    <div class="campo-select compacto">
-                        <span class="campo-icono">↗</span>
-                        <select id="arista-origen" required></select>
+                <!-- Barra Inferior de Verificación -->
+                <div class="hero-barra-verificacion">
+                    <div class="verificacion-izq">
+                        <span id="mensaje" class="mensaje" role="status">
+                            Selecciona un origen y destino para calcular el itinerario óptimo.
+                        </span>
+                        <span class="separador-barra">|</span>
+                        <span class="formula-teorica mono">G = (V, E) • Dijkstra O(|E| + |V| log |V|)</span>
                     </div>
-
-                    <label class="campo-label"
-                           for="arista-destino">
-                        Destino
-                    </label>
-
-                    <div class="campo-select compacto">
-                        <span class="campo-icono">⌖</span>
-                        <select id="arista-destino" required></select>
+                    <div class="verificacion-der mono">
+                        <i class="fa-solid fa-bolt texto-dorado"></i>
+                        <span>Cómputo en memoria: <strong id="tiempo-computo">Reactivo</strong></span>
                     </div>
-
-                    <label class="campo-label"
-                           for="arista-distancia">
-                        Distancia en km
-                    </label>
-
-                    <input
-                        class="campo-texto"
-                        id="arista-distancia"
-                        type="number"
-                        step="any"
-                        min="1"
-                        placeholder="Distancia (km)"
-                        required>
-
-                    <label class="editor-check"
-                           for="arista-bidireccional">
-                        <input
-                            id="arista-bidireccional"
-                            type="checkbox">
-                        Bidireccional
-                    </label>
-
-                    <button class="boton-editor"
-                            type="submit">
-                        Agregar Conexión
-                    </button>
-
-                </form>
-
-                <div id="mensaje-editor"
-                     class="mensaje-editor"
-                     role="status">
-                    Los cambios se guardan solo en memoria.
                 </div>
 
             </div>
 
-        </details>
-
-        <div class="lateral-footer">
-            <span class="punto-verde"></span>
-            Motor de rutas activo
-
-            <small>
-                Proyecto de Lenguajes Formales y Autómatas
-            </small>
         </div>
-
-    </aside>
-
-
-    <!-- CONTENIDO PRINCIPAL -->
-
-    <main class="contenido">
-
-        <header class="barra-superior">
-
-            <div>
-                <div class="ruta-miga">
-                    PANEL DE CONTROL / EXPLORADOR DE VUELOS
-                </div>
-
-                <h2>Explorador de rutas aéreas</h2>
-            </div>
-
-            <div class="chip-live">
-                <span></span>
-                SISTEMA EN LÍNEA
-            </div>
-
-        </header>
+    </section>
 
 
-        <!-- ESTADÍSTICAS -->
+    <!-- ======================================================== -->
+    <!-- CINTA DE MÉTRICAS KPI FLOTANTES                          -->
+    <!-- ======================================================== -->
+    <section class="seccion-kpi">
+        <div class="contenedor-ancho">
+            <div class="cuadricula-kpi">
 
-        <section class="metricas">
-
-            <div class="metrica">
-                <div class="metrica-simbolo">◈</div>
-
-                <div>
-                    <span>Aeropuertos</span>
-                    <strong id="cantidad-aeropuertos">—</strong>
-                    <small>En nuestra red</small>
-                </div>
-            </div>
-
-            <div class="metrica">
-                <div class="metrica-simbolo">↗</div>
-
-                <div>
-                    <span>Conexiones</span>
-                    <strong id="cantidad-conexiones">—</strong>
-                    <small>Vuelos dirigidos</small>
-                </div>
-            </div>
-
-            <div class="metrica">
-                <div class="metrica-simbolo">⌁</div>
-
-                <div>
-                    <span>Ruta más corta</span>
-                    <strong id="distancia-principal">—</strong>
-                    <small>Distancia total (km)</small>
-                </div>
-            </div>
-
-            <div class="metrica">
-                <div class="metrica-simbolo">◉</div>
-
-                <div>
-                    <span>Escalas</span>
-                    <strong id="cantidad-escalas">—</strong>
-                    <small>En la ruta óptima</small>
-                </div>
-            </div>
-
-        </section>
-
-
-        <!-- MAPA INTERACTIVO -->
-
-        <section class="mapa-tarjeta">
-
-            <div class="mapa-encabezado">
-
-                <div>
-                    <span class="sobrelinea">
-                        VISUALIZACIÓN INTERACTIVA
-                    </span>
-
-                    <h3>Mapa de conexiones</h3>
-                </div>
-
-                <div class="mapa-controles">
-
-                    <label class="toggle">
-                        <input
-                            type="checkbox"
-                            id="mostrar-red"
-                            checked>
-
-                        Mostrar conexiones
-                    </label>
-
-                    <span class="punto-vivo"></span>
-                    <span class="mapa-badge">LIVE MAP</span>
-
-                </div>
-
-            </div>
-
-            <div class="mapa-zona" id="mapa-zona">
-
-                <div id="mapa"></div>
-
-                <div class="mapa-gradiente"></div>
-
-                <div class="mapa-info" id="mapa-info">
-
-                    <span>RECORRIDO ACTUAL</span>
-
-                    <strong id="mapa-ruta-texto">
-                        Selecciona una ruta
-                    </strong>
-
-                    <small id="mapa-estado">
-                        Preparando visualización...
-                    </small>
-                </div>
-
-                <!-- MAPA ALTERNATIVO SIN LEAFLET -->
-
-                <div id="mapa-fallback" hidden>
-
-                    <canvas
-                        id="mapa-local"
-                        width="1100"
-                        height="620">
-                    </canvas>
-
-                    <span class="modo-local">
-                        MAPA ILUSTRATIVO
-                    </span>
-
-                </div>
-
-                <div class="mapa-leyenda">
-
-                    <span>
-                        <i class="leyenda-circulo"></i>
-                        Aeropuerto
-                    </span>
-
-                    <span>
-                        <i class="leyenda-linea"></i>
-                        Ruta óptima
-                    </span>
-
-                    <span>✈ Avión animado</span>
-
-                </div>
-
-            </div>
-
-
-            <!-- CONTROLES DE ANIMACIÓN -->
-
-            <div class="reproduccion">
-
-                <div class="reproduccion-izq">
-
-                    <span class="icono-play">✈</span>
-
-                    <div>
-                        <strong id="tramo-actual">
-                            Vuelo preparado
-                        </strong>
-
-                        <small id="estado-animacion">
-                            Busca una ruta para comenzar
-                        </small>
+                <!-- Nodos -->
+                <div class="tarjeta-kpi">
+                    <div class="kpi-icono">
+                        <i class="fa-solid fa-city"></i>
                     </div>
-
+                    <div class="kpi-contenido">
+                        <span class="kpi-etiqueta">Aeropuertos (Nodos)</span>
+                        <div class="kpi-cifra-fila">
+                            <strong id="cantidad-aeropuertos" class="mono">—</strong>
+                            <small class="kpi-detalle">en el grafo v ∈ V</small>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="reproduccion-der">
+                <!-- Aristas -->
+                <div class="tarjeta-kpi">
+                    <div class="kpi-icono">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                    </div>
+                    <div class="kpi-contenido">
+                        <span class="kpi-etiqueta">Conexiones (Aristas)</span>
+                        <div class="kpi-cifra-fila">
+                            <strong id="cantidad-conexiones" class="mono">—</strong>
+                            <small class="kpi-detalle">vuelos dirigidos e ∈ E</small>
+                        </div>
+                    </div>
+                </div>
 
-                    <label for="velocidad">
-                        Velocidad
-                    </label>
+                <!-- Distancia Mínima -->
+                <div class="tarjeta-kpi">
+                    <div class="kpi-icono kpi-icono-teal">
+                        <i class="fa-solid fa-route"></i>
+                    </div>
+                    <div class="kpi-contenido">
+                        <span class="kpi-etiqueta">Distancia Mínima</span>
+                        <div class="kpi-cifra-fila">
+                            <strong id="distancia-principal" class="mono texto-teal">—</strong>
+                            <small class="kpi-detalle">km ortodrómicos</small>
+                        </div>
+                    </div>
+                </div>
 
-                    <select id="velocidad">
-                        <option value="1">1×</option>
-                        <option value="2" selected>2×</option>
-                        <option value="3">3×</option>
-                    </select>
-
-                    <button id="pausa"
-                            type="button"
-                            disabled>
-                        ❚❚ Pausar
-                    </button>
-
-                    <button id="reiniciar"
-                            type="button"
-                            disabled>
-                        ↻ Repetir vuelo
-                    </button>
-
+                <!-- Escalas -->
+                <div class="tarjeta-kpi">
+                    <div class="kpi-icono kpi-icono-ocre">
+                        <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                    </div>
+                    <div class="kpi-contenido">
+                        <span class="kpi-etiqueta">Escalas Técnicas</span>
+                        <div class="kpi-cifra-fila">
+                            <strong id="cantidad-escalas" class="mono texto-ocre">—</strong>
+                            <small class="kpi-detalle">en la ruta óptima</small>
+                        </div>
+                    </div>
                 </div>
 
             </div>
+        </div>
+    </section>
 
-        </section>
 
+    <!-- ======================================================== -->
+    <!-- CUERPO PRINCIPAL: GESTOR DE RED Y MAPA CARTOGRÁFICO SIG  -->
+    <!-- ======================================================== -->
+    <main class="seccion-principal">
+        <div class="contenedor-ancho">
+            <div class="distribucion-principal">
 
-        <!-- RESULTADOS -->
+                <!-- COLUMNA IZQUIERDA: GESTOR DE GRAFO G=(V,E) -->
+                <aside class="columna-lateral" id="panel-grafos">
+                    <div class="tarjeta-superficie tarjeta-gestor">
 
-        <section class="resultados">
+                        <div class="gestor-cabecera">
+                            <div class="gestor-titulo-bloque">
+                                <div class="icono-pequeno">
+                                    <i class="fa-solid fa-network-wired"></i>
+                                </div>
+                                <h2 class="gestor-titulo">Gestor de Red G=(V,E)</h2>
+                            </div>
+                            <span class="badge-tag-memoria">En Memoria</span>
+                        </div>
 
-            <!-- DIJKSTRA Y AUTÓMATA -->
+                        <p class="gestor-descripcion">
+                            Inserción dinámica de vértices aeroportuarios y aristas ponderadas dirigidas. Recalcula el árbol de Dijkstra de forma reactiva.
+                        </p>
 
-            <article class="tarjeta-resultado">
+                        <!-- FORMULARIO 1: AGREGAR NODO -->
+                        <div class="subtarjeta-editor">
+                            <div class="subtarjeta-cabecera">
+                                <h3><i class="fa-solid fa-location-dot"></i> Agregar Vértice (Aeropuerto)</h3>
+                                <span class="mono texto-muted-xs">v ∈ V</span>
+                            </div>
 
-                <div class="resultado-cabecera">
+                            <form id="form-nodo" class="formulario-editor" autocomplete="off">
+                                <div class="campo-editor">
+                                    <label for="nuevo-codigo">Código IATA (3 letras)</label>
+                                    <input id="nuevo-codigo" class="control-input mono uppercase" type="text" maxlength="3" pattern="[A-Za-z]{2,3}" placeholder="Ej. CUN, BOG, LIM" required>
+                                </div>
 
-                    <div>
-                        <span class="sobrelinea">
-                            DIJKSTRA + AUTÓMATA
-                        </span>
+                                <div class="campo-editor">
+                                    <label for="nuevo-nombre">Nombre de la Terminal</label>
+                                    <input id="nuevo-nombre" class="control-input" type="text" maxlength="120" placeholder="Ej. Cancún Internacional" required>
+                                </div>
 
-                        <h3>Itinerario óptimo</h3>
+                                <div class="fila-doble">
+                                    <div class="campo-editor">
+                                        <label for="nueva-lat">Latitud (°N)</label>
+                                        <input id="nueva-lat" class="control-input mono" type="number" step="any" min="-90" max="90" placeholder="21.0365" required>
+                                    </div>
+                                    <div class="campo-editor">
+                                        <label for="nueva-lon">Longitud (°W)</label>
+                                        <input id="nueva-lon" class="control-input mono" type="number" step="any" min="-180" max="180" placeholder="-86.8770" required>
+                                    </div>
+                                </div>
+
+                                <p class="ayuda-mapa-clic">
+                                    <i class="fa-solid fa-hand-pointer"></i> Haz clic en el mapa para autocompletar coordenadas.
+                                </p>
+
+                                <button class="btn-subformulario" type="submit">
+                                    <i class="fa-solid fa-plus"></i> Registrar Vértice V
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- FORMULARIO 2: AGREGAR ARISTA -->
+                        <div class="subtarjeta-editor">
+                            <div class="subtarjeta-cabecera">
+                                <h3><i class="fa-solid fa-link texto-dorado"></i> Agregar Arista Dirigida (u → v)</h3>
+                                <span class="mono texto-muted-xs">e ∈ E, w(e)&gt;0</span>
+                            </div>
+
+                            <form id="form-arista" class="formulario-editor">
+                                <div class="fila-doble">
+                                    <div class="campo-editor">
+                                        <label for="arista-origen">Origen (u)</label>
+                                        <div class="selector-envoltorio">
+                                            <select id="arista-origen" class="control-select compacto" required></select>
+                                        </div>
+                                    </div>
+                                    <div class="campo-editor">
+                                        <label for="arista-destino">Destino (v)</label>
+                                        <div class="selector-envoltorio">
+                                            <select id="arista-destino" class="control-select compacto" required></select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="campo-editor">
+                                    <label for="arista-distancia">Peso Ponderado w(u, v) (km)</label>
+                                    <div class="input-con-sufijo">
+                                        <input id="arista-distancia" class="control-input mono" type="number" step="any" min="1" placeholder="1050" required>
+                                        <span class="sufijo-input mono">km</span>
+                                    </div>
+                                </div>
+
+                                <label class="control-checkbox" for="arista-bidireccional">
+                                    <input id="arista-bidireccional" type="checkbox">
+                                    <span>Arista Bidireccional (u ↔ v)</span>
+                                </label>
+
+                                <button class="btn-subformulario btn-arista" type="submit">
+                                    <i class="fa-solid fa-plus-circle"></i> Insertar Arista al Grafo
+                                </button>
+                            </form>
+                        </div>
+
+                        <div id="mensaje-editor" class="mensaje-editor" role="status">
+                            Los cambios se conservan temporalmente en la memoria activa del servidor.
+                        </div>
+
+                        <div class="gestor-pie mono">
+                            <span>Grafo conexo ponderado G</span>
+                            <span>Almacenamiento: RAM</span>
+                        </div>
+
                     </div>
-
-                    <span id="sello-validacion"
-                          class="sello gris">
-                        Sin calcular
-                    </span>
-
-                </div>
-
-                <div id="resumen-ruta"
-                     class="resumen-ruta">
-                    El recorrido aparecerá aquí.
-                </div>
-
-                <div id="tramos" class="tramos"></div>
-
-            </article>
+                </aside>
 
 
-            <!-- MARKOV -->
+                <!-- COLUMNA DERECHA: VISOR CARTOGRÁFICO SIG & ANIMACIÓN -->
+                <section class="columna-mapa">
+                    <div class="tarjeta-superficie tarjeta-mapa-sig">
 
-            <article class="tarjeta-resultado">
+                        <!-- Barra de Herramientas del Mapa -->
+                        <div class="mapa-sig-cabecera">
+                            <div class="sig-titulo-grupo">
+                                <span class="punto-verde-sig"></span>
+                                <span class="sig-etiqueta mono">VISOR CARTOGRÁFICO SIG</span>
+                                <span class="separador-barra-suave">|</span>
+                                <div class="mapa-tipo-selectores">
+                                    <span class="btn-capa activa">Positron (Claro)</span>
+                                    <span class="btn-capa">Vuelos IFR</span>
+                                    <span class="btn-capa">Satélite</span>
+                                </div>
+                            </div>
 
-                <div class="resultado-cabecera">
+                            <div class="sig-acciones-derecha">
+                                <label class="control-toggle-red">
+                                    <input type="checkbox" id="mostrar-red" checked>
+                                    <span>Red de conexiones visible</span>
+                                </label>
+                                <button type="button" class="btn-centrar-ruta" onclick="if(window.sistema && window.sistema.mapa) window.sistema.mapa.setView([14, -67], 3)">
+                                    <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                                    <span>Centrar Red</span>
+                                </button>
+                            </div>
+                        </div>
 
-                    <div>
-                        <span class="sobrelinea">
-                            CADENAS DE MARKOV
-                        </span>
+                        <!-- Franja Superior de Itinerario Activo -->
+                        <div class="franja-itinerario-activo">
+                            <div class="itinerario-cadena mono">
+                                <span class="cadena-etiqueta">TRAMO:</span>
+                                <strong id="mapa-ruta-texto">Selecciona un origen y destino</strong>
+                                <span class="separador-punto">|</span>
+                                <small id="mapa-estado" class="estado-mapa-texto">Preparando visualización cartográfica...</small>
+                            </div>
+                            <div class="solucion-badge mono">
+                                <span class="punto-dorado-sm"></span>
+                                <span>Solución Dijkstra: Costo Mínimo Acumulado</span>
+                            </div>
+                        </div>
 
-                        <h3>Predicción del vuelo</h3>
+                        <!-- Lienzo del Mapa (Leaflet) -->
+                        <div class="contenedor-mapa-relativo">
+                            <div id="mapa" class="mapa-leaflet-canvas"></div>
+
+                            <!-- Fallback en caso de que Leaflet no tenga conexión -->
+                            <div id="mapa-fallback" class="mapa-fallback-box" hidden>
+                                <canvas id="mapa-local" width="1100" height="520"></canvas>
+                                <span class="modo-local">MODO ILUSTRATIVO LOCAL</span>
+                            </div>
+
+                            <!-- Leyenda Flotante del Mapa -->
+                            <div class="mapa-leyenda-flotante">
+                                <div class="leyenda-item">
+                                    <span class="circulo-leyenda origen"></span>
+                                    <span>Nodo Origen</span>
+                                </div>
+                                <div class="leyenda-item">
+                                    <span class="circulo-leyenda destino"></span>
+                                    <span>Destino</span>
+                                </div>
+                                <div class="leyenda-item">
+                                    <span class="linea-leyenda optima"></span>
+                                    <span>Ortodrómica Óptima</span>
+                                </div>
+                                <div class="leyenda-item">
+                                    <span class="linea-leyenda red"></span>
+                                    <span>Red Aerovías</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Barra de Telemetría de Vuelo & Controles de Animación -->
+                        <div class="barra-telemetria-reproduccion">
+                            <div class="telemetria-datos">
+                                <div class="icono-avion-caja">
+                                    <i class="fa-solid fa-plane"></i>
+                                </div>
+                                <div>
+                                    <div class="telemetria-tramo-fila mono">
+                                        <strong id="tramo-actual">Vuelo preparado</strong>
+                                        <span class="badge-aproximacion">Despacho Oficial</span>
+                                    </div>
+                                    <p id="estado-animacion" class="telemetria-subtexto mono">
+                                        Busca una ruta para activar el rastreo cinemático en tiempo real.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="telemetria-controles">
+                                <div class="control-velocidad-grupo">
+                                    <span class="etiqueta-vel">Velocidad</span>
+                                    <select id="velocidad" class="select-vel mono">
+                                        <option value="1">1×</option>
+                                        <option value="2" selected>2×</option>
+                                        <option value="3">3×</option>
+                                    </select>
+                                </div>
+
+                                <button id="pausa" class="btn-control-repro" type="button" disabled>
+                                    <i class="fa-solid fa-pause"></i> <span>Pausar</span>
+                                </button>
+
+                                <button id="reiniciar" class="btn-control-repro" type="button" disabled>
+                                    <i class="fa-solid fa-rotate-right"></i> <span>Reiniciar</span>
+                                </button>
+                            </div>
+                        </div>
+
                     </div>
+                </section>
 
-                    <span class="sello azul">
-                        SIMULACIÓN
-                    </span>
+            </div>
+
+
+            <!-- ======================================================== -->
+            <!-- SECCIÓN INFERIOR: MÉTODOS FORMALES (DIJKSTRA & MARKOV)   -->
+            <!-- ======================================================== -->
+            <section class="seccion-analisis-formal" id="analisis-formal">
+                <div class="distribucion-analisis">
+
+                    <!-- TARJETA 1: DIJKSTRA + AUTÓMATA FINITO DETERMINISTA -->
+                    <article class="tarjeta-superficie tarjeta-analisis tarjeta-dijkstra">
+                        <div>
+                            <div class="analisis-cabecera">
+                                <div>
+                                    <span class="analisis-subtitulo mono">DIJKSTRA • AUTÓMATA FINITO DETERMINISTA</span>
+                                    <h3 class="analisis-titulo">Itinerario Óptimo y Validación Formal L(M)</h3>
+                                </div>
+                                <span id="sello-validacion" class="sello gris">
+                                    Sin calcular
+                                </span>
+                            </div>
+
+                            <!-- Chips de Recorrido -->
+                            <div id="resumen-ruta" class="resumen-ruta-envoltorio">
+                                El recorrido aparecerá aquí tras seleccionar origen y destino.
+                            </div>
+
+                            <!-- Desglose de Tramos -->
+                            <div id="tramos" class="tramos-lista"></div>
+                        </div>
+
+                        <div class="analisis-pie mono">
+                            <span>Gramática Regular: S → aA, A → bB, ... w ∈ L(M)</span>
+                            <span class="texto-destacado-dark">Estado de Aceptación: q_f ∈ F</span>
+                        </div>
+                    </article>
+
+                    <!-- TARJETA 2: CADENAS DE MARKOV DISCRETAS -->
+                    <article class="tarjeta-superficie tarjeta-analisis tarjeta-markov">
+                        <div>
+                            <div class="analisis-cabecera">
+                                <div>
+                                    <span class="analisis-subtitulo mono texto-dorado">CADENAS DE MARKOV DISCRETAS</span>
+                                    <h3 class="analisis-titulo">Matriz de Transición & Puntualidad</h3>
+                                </div>
+                                <button type="button" class="btn-accion-markov" onclick="document.getElementById('calcular').click()">
+                                    <i class="fa-solid fa-play"></i> <span>Ejecutar P^k</span>
+                                </button>
+                            </div>
+
+                            <p class="markov-formula-explicativa mono">
+                                Vector de probabilidad π(k) = π(0) · P^k para el horizonte de k etapas seleccionadas.
+                            </p>
+
+                            <!-- Contenedor Dinámico de Probabilidades -->
+                            <div id="prediccion" class="prediccion-vacia">
+                                Calcula una ruta para ver las probabilidades de estado del vuelo.
+                            </div>
+
+                            <!-- Diagnóstico Estocástico -->
+                            <div class="caja-diagnostico-estocastico">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <div class="diagnostico-texto">
+                                    <strong>Diagnóstico Estocástico:</strong> Conforme el horizonte temporal $k$ aumenta, la distribución de probabilidad converge hacia la distribución estacionaria $\pi$ del proceso estocástico.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="analisis-pie mono">
+                            <span>Propiedad Markoviana sin memoria: P(X_{n+1} = j | X_n = i)</span>
+                        </div>
+                    </article>
 
                 </div>
+            </section>
 
-                <p class="texto-resultado">
-                    Probabilidades del estado del vuelo
-                    según la matriz de transición.
-                </p>
-
-                <div id="prediccion"
-                     class="prediccion-vacia">
-                    Calcula una ruta para ver las probabilidades.
-                </div>
-
-                <small class="nota">
-                    Modelo académico. No representa
-                    retrasos de vuelos reales.
-                </small>
-
-            </article>
-
-        </section>
-
-        <footer class="pie">
-
-            AeroRoute - Sistema de conexiones aéreas
-
-            <span>
-                Proyecto de Lenguajes Formales y Autómatas
-            </span>
-
-        </footer>
-
+        </div>
     </main>
 
-</div>
+
+    <!-- ======================================================== -->
+    <!-- PIE DE PÁGINA: AERO ROUTE ATELIER                        -->
+    <!-- ======================================================== -->
+    <footer class="pie-sitio">
+        <div class="contenedor-ancho pie-interior">
+            <div class="pie-marca">
+                <div class="pie-icono">
+                    <i class="fa-solid fa-plane"></i>
+                </div>
+                <div>
+                    <strong class="pie-titulo">AeroRoute Atelier</strong>
+                    <span class="pie-lema"> — Plataforma de Conexiones Aéreas y Modelado Estocástico</span>
+                </div>
+            </div>
+
+            <div class="pie-academico">
+                <p class="pie-curso">Proyecto de Lenguajes Formales y Autómatas</p>
+                <p class="pie-detalles mono">Camino Mínimo (Dijkstra) • Cadenas de Markov Discretas • Autómatas Deterministas</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script de reloj UTC en vivo y animación del intercambiador -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Reloj UTC en vivo
+            function actualizarReloj() {
+                const ahora = new Date();
+                const h = String(ahora.getUTCHours()).padStart(2, '0');
+                const m = String(ahora.getUTCMinutes()).padStart(2, '0');
+                const s = String(ahora.getUTCSeconds()).padStart(2, '0');
+                const reloj = document.getElementById("reloj-utc");
+                if (reloj) reloj.textContent = `UTC ${h}:${m}:${s}`;
+            }
+            setInterval(actualizarReloj, 1000);
+            actualizarReloj();
+
+            // Rotación suave al hacer clic en intercambiar
+            const btnSwap = document.getElementById("intercambiar");
+            if (btnSwap) {
+                btnSwap.addEventListener("click", () => {
+                    btnSwap.classList.toggle("rotado");
+                });
+            }
+        });
+    </script>
 
 </body>
 </html>
